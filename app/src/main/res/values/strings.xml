@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">UrovoPaymentApp</string>
+
+    <string name="unknown">Unknown</string>
+    <string name="sale">Sale</string>
+    <string name="balance">Balance</string>
+    <string name="preaAuth">PreAuth</string>
+    <string name="preaAuth_revoke">PreAuth Revoke</string>
+    <string name="preaAuth_comp">PreAuth Comp</string>
+    <string name="preaAuth_comp_revoke">PreAuth Comp Revoke</string>
+    <string name="revoke">Revoke</string>
+    <string name="refund">Refund</string>
+    <string name="sign_in">Sign In</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="settle">Settle</string>
+    <string name="scan_pay">Scan Pay</string>
+    <string name="scan_revoke">Scan Revoke</string>
+    <string name="scan_refund">Scan Refund</string>
+    <string name="please_read_the_card_in_the_following_way">Please read the card in the following way</string>
+
+</resources>
