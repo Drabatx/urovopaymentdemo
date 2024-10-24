@@ -13,24 +13,25 @@ import java.util.Hashtable
 
 class CardReaderViewModel : ViewModel() {
     private val payCardType = 1 //0:mag，1：ic/rfid
-    private var iInsertCardReader: InsertCardHandlerImpl? = null
+    private var insertCardHandlerImpl: InsertCardHandlerImpl? = null
     private var mKernelApi: EmvNfcKernelApi? = null
     private var pinpad: PinPadProviderImpl? = null
 
     private var amount = "1"
     fun insertCard() {
-        iInsertCardReader = InsertCardHandlerImpl.getInstance();
+        insertCardHandlerImpl = InsertCardHandlerImpl.getInstance();
         mKernelApi = EmvNfcKernelApi.getInstance()
         pinpad = PinPadProviderImpl.getInstance()
         startKernelCoroutine(ContantPara.CheckCardMode.INSERT_OR_TAP)
     }
+
 
     fun startKernelCoroutine(checkCardMode: ContantPara.CheckCardMode) {
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val data = Hashtable<String, Any>().apply {
                     put("checkCardMode", checkCardMode)
-                    put("currencyCode", "484") //682
+                    put("currencyCode", "484") //484 para MX
                     put("emvOption", ContantPara.EmvOption.START) // START_WITH_FORCE_ONLINE
                     put("amount", amount)
                     put("cashbackAmount", "0")

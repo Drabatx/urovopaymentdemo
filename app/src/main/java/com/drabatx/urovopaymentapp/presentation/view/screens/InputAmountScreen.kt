@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import com.drabatx.urovopaymentapp.presentation.view.widgets.InputAmtView
 import com.drabatx.urovopaymentapp.presentation.view.widgets.MyTopBar
 
 class InputAmountScreen : Screen {
@@ -77,42 +78,45 @@ class InputAmountScreen : Screen {
                     singleLine = true,
                     textStyle = TextStyle(fontSize = 48.sp)
                 )
-                Row {
-                    Button(
-                        onClick = {
-                            text = "" /* Acción al hacer clic en Limpiar */
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Yellow)
-                    ) {
-                        Text(
-                            "Limpiar",
-                            fontSize = 24.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        ) // Tamaño de texto grande
-                    }
-
-                    Button(
-                        onClick = {
-                            /**
-                             * TODO Agrear una validación de monto
-                             */
-                            navigator.push(CardScreen())
-                        },
-                        modifier = Modifier
-                            .weight(1f)
-                            .padding(8.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green)
-                    ) {
-                        Text(
-                            "Confirmar",
-                            fontSize = 24.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        ) // Tamaño de texto grande
-                    }
-                }
+                InputAmtView(modifier = Modifier.fillMaxWidth(), onButtonClick = { outtext, action ->
+                    text = outtext
+                })
+//                Row {
+//                    Button(
+//                        onClick = {
+//                            text = "" /* Acción al hacer clic en Limpiar */
+//                        },
+//                        modifier = Modifier
+//                            .weight(1f)
+//                            .padding(8.dp),
+//                        colors = ButtonDefaults.buttonColors(containerColor = Color.Yellow)
+//                    ) {
+//                        Text(
+//                            "Limpiar",
+//                            fontSize = 24.sp,
+//                            color = MaterialTheme.colorScheme.primary
+//                        ) // Tamaño de texto grande
+//                    }
+//
+//                    Button(
+//                        onClick = {
+//                            /**
+//                             * TODO Agrear una validación de monto
+//                             */
+//                            navigator.push(CardScreen())
+//                        },
+//                        modifier = Modifier
+//                            .weight(1f)
+//                            .padding(8.dp),
+//                        colors = ButtonDefaults.buttonColors(containerColor = Color.Green)
+//                    ) {
+//                        Text(
+//                            "Confirmar",
+//                            fontSize = 24.sp,
+//                            color = MaterialTheme.colorScheme.primary
+//                        ) // Tamaño de texto grande
+//                    }
+//                }
                 Spacer(Modifier.weight(1f))
             }
         }
