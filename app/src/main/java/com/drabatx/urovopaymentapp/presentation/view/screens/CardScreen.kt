@@ -4,6 +4,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
@@ -46,7 +47,7 @@ class CardScreen : Screen {
                     Text(text = "No. de Tarjeta")
                     Text(text = noTarjeta)
                 }
-                Box {
+                Box(modifier = Modifier.weight(0.7f)) {
                     Image(
                         painter = painterResource(id = R.drawable.icon_card_9100_en),
                         contentDescription = stringResource(R.string.please_read_the_card_in_the_following_way),
@@ -59,6 +60,7 @@ class CardScreen : Screen {
                 }) {
                     Text(text = "Leer Tarjeta")
                 }
+                Spacer(modifier = Modifier.weight(0.3f))
             }
         }
     }
