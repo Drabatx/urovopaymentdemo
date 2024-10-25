@@ -21,7 +21,6 @@ import com.drabatx.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.drabatx.urovopaymentapp.presentation.view.widgets.MyTopBar
 
 class HomeScreen : Screen {
-    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
