@@ -1,19 +1,19 @@
 package com.drabatx.urovopaymentapp.presentation.view.viewmodels
 
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.drabatx.urovopaymentapp.data.model.pos2.Constants.PosTransType
 import com.drabatx.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
-class InputAmountViewModel: ViewModel() {
+class InputAmountViewModel : ViewModel() {
 
-    private val _inputData = MutableStateFlow(PosInputDatas())
+    private val _inputData = MutableStateFlow(PosInputDatas.Builder().build())
     val inputData = _inputData.asStateFlow()
     fun setInputData() {
-        this.inputData.value.setiTransNo(PosTransType.POS_SALE)
+        _inputData.value = PosInputDatas.Builder().setITransNo(PosTransType.POS_SALE).build()
     }
+
     fun setAmount(amount: Double) {
         this.inputData.value.amt = amount.toString()
     }

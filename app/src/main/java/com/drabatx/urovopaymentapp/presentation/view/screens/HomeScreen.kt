@@ -36,8 +36,7 @@ class HomeScreen : Screen {
             ) {
                 Spacer(Modifier.weight(1f))
                 Button(onClick = {
-                    val posInputDatas = PosInputDatas()
-                    posInputDatas.setiTransNo(PosTransType.POS_SALE)
+                    val posInputDatas = PosInputDatas.Builder().setITransNo(PosTransType.POS_SALE).build()
                     navigator.push(InputAmountScreen())
                 }) {
                     Text(text = "Pay withUrovo")
