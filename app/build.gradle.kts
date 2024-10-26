@@ -89,4 +89,6 @@ dependencies {
     implementation(libs.cafe.adriel.voyager.navigation)
     implementation(libs.cafe.adriel.voyager.screen.model)
     implementation(libs.cafe.adriel.voyager.transitions)
+    implementation(libs.cafe.adriel.voyager.hilt)
+    implementation(libs.cafe.adriel.voyager.livedata)
 }

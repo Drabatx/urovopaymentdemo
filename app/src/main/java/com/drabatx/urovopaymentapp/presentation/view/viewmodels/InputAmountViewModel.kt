@@ -7,7 +7,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class InputAmountViewModel : ViewModel() {
-
     private val _inputData = MutableStateFlow(PosInputDatas.Builder().build())
     val inputData = _inputData.asStateFlow()
     fun setInputData() {
@@ -17,7 +16,6 @@ class InputAmountViewModel : ViewModel() {
     fun setAmount(amount: Double) {
         this.inputData.value.amt = amount.toString()
     }
-
 
     init {
         setInputData()

@@ -25,8 +25,10 @@ import com.urovo.sdk.beeper.BeeperImpl
 import com.urovo.sdk.led.LEDDriverImpl
 import java.util.Hashtable
 import java.util.Locale
+import javax.inject.Inject
 
-class MyEmvListener(
+
+class MyEmvListener @Inject constructor(
     private var posInputDatas: PosInputDatas,
     private val mKernelApi: EmvNfcKernelApi,
     private val iBeeper: BeeperImpl,

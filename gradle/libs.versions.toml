@@ -45,6 +45,8 @@ androidx-material-icons = { group = "androidx.compose.material", name = "materia
 cafe-adriel-voyager-navigation = { group = "cafe.adriel.voyager", name = "voyager-navigator", version.ref ="voyagerVersion" }
 cafe-adriel-voyager-screen-model= { group = "cafe.adriel.voyager", name = "voyager-screenmodel", version.ref ="voyagerVersion" }
 cafe-adriel-voyager-transitions= { group = "cafe.adriel.voyager", name = "voyager-transitions", version.ref ="voyagerVersion" }
+cafe-adriel-voyager-hilt = { group = "cafe.adriel.voyager", name = "voyager-hilt", version.ref ="voyagerVersion" }
+cafe-adriel-voyager-livedata = { group = "cafe.adriel.voyager", name = "voyager-livedata", version.ref ="voyagerVersion" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

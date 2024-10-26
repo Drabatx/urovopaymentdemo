@@ -95,7 +95,6 @@ class InputAmountScreen : Screen {
                 InputAmountKeyboard(modifier = Modifier
                     .fillMaxWidth()
                     .weight(0.7f), onButtonClick = { outText, action ->
-                    Log.i("TAG", "Content: $outText")
                     when (action) {
                         ACTION_DELETE -> {
                             if (text.length > 1) {
@@ -116,7 +115,7 @@ class InputAmountScreen : Screen {
 
                         ACTION_ENTER -> {
                             if (text.toDouble() > 0) {
-                                //TODO en caso de que existan otros tipos de transacciones capturar loc casos aqui
+                                viewModel.setAmount(text.toDouble())
                                 navigator.push(CardReaderScreen(viewModel.inputData.value))
                             }
                         }
@@ -129,7 +128,6 @@ class InputAmountScreen : Screen {
     fun updateAmount(currentAmount: String, inputDigit: Char): String {
         // Remover el punto decimal y agregar el nuevo dígito
         val newAmount = currentAmount.replace(".", "") + inputDigit
-
         // Insertar el punto decimal antes de los últimos dos dígitos y formatear correctamente
         val formattedAmount = newAmount.trimStart('0').padStart(3, '0').let {
             it.substring(0, it.length - 2) + "." + it.takeLast(2)
@@ -141,13 +139,11 @@ class InputAmountScreen : Screen {
     fun removeLastDigit(currentAmount: String): String {
         // Eliminar el punto y el último dígito de la cantidad
         val newAmount = currentAmount.replace(".", "").dropLast(1)
-
         // Insertar el punto decimal antes de los dos últimos dígitos y formatear
         val formattedAmount = newAmount.padStart(3, '0').let {
             it.substring(0, it.length - 2) + "." + it.takeLast(2)
         }
         Log.i("TAG", "removeLastDigit: Entrada: $currentAmount salida: $formattedAmount")
-
         return formattedAmount
     }
 }

@@ -14,7 +14,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.drabatx.urovopaymentapp.presentation.navigation.AppNavigator
 import com.drabatx.urovopaymentapp.presentation.view.screens.HomeScreen
 import com.drabatx.urovopaymentapp.presentation.view.theme.UrovoPaymentAppTheme
+import dagger.hilt.android.AndroidEntryPoint
 
+@AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)

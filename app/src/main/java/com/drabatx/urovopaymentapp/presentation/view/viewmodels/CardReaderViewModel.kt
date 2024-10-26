@@ -1,33 +1,36 @@
 package com.drabatx.urovopaymentapp.presentation.view.viewmodels
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.drabatx.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.drabatx.urovopaymentapp.domain.repository.MyEmvListener
+import com.drabatx.urovopaymentapp.presentation.view.factory.MyEmvListenerFactory
 import com.urovo.i9000s.api.emv.ContantPara
 import com.urovo.i9000s.api.emv.EmvNfcKernelApi
-import com.urovo.sdk.beeper.BeeperImpl
-import com.urovo.sdk.insertcard.InsertCardHandlerImpl
-import com.urovo.sdk.led.LEDDriverImpl
-import com.urovo.sdk.pinpad.PinPadProviderImpl
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Hashtable
+import javax.inject.Inject
 
-class CardReaderViewModel(
-    private val mKernelApi: EmvNfcKernelApi,
-    private val emvListener: MyEmvListener,
+@HiltViewModel
+class CardReaderViewModel @Inject constructor(
+    private val mKernelApi: EmvNfcKernelApi, private val myEmvListenerFactory: MyEmvListenerFactory
 ) : ViewModel() {
     private val TAG = "CardReaderViewModel"
     private val payCardType = 1 //0:mag，1：ic/rfid Solo para mostrar la imagen del tipo de tarjeta
 
-    val isRequestOnlineProcess = emvListener.isRequestOnlineProcess
-    val result = emvListener.result
-    val reasonsEMV = emvListener.reasonsEMV
+    lateinit var myEmvListener: MyEmvListener
 
     private var amount = "1"
 
+//    val isRequestOnlineProcess = emvListener.isRequestOnlineProcess
+//    val result = emvListener.result
+//    val reasonsEMV = emvListener.reasonsEMV
+
+    fun initEmvListener(posInputDatas: PosInputDatas) {
+        myEmvListener = myEmvListenerFactory.create(posInputDatas)
+    }
 
     fun startKernelCoroutine(checkCardMode: ContantPara.CheckCardMode) {
         viewModelScope.launch(Dispatchers.IO) {
@@ -50,5 +53,4 @@ class CardReaderViewModel(
             }
         }
     }
-
 }

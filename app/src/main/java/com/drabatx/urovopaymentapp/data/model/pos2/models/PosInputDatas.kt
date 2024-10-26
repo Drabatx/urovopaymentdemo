@@ -87,7 +87,7 @@ class PosInputDatas private constructor(
     /**
      * Tipo de transacción actual.
      */
-    private var iTransNo: Int = 0,
+    var iTransNo: Int = 0,
 
     /**
      * Número de referencia.
