@@ -29,7 +29,6 @@ import javax.inject.Inject
 
 
 class MyEmvListener @Inject constructor(
-    private var posInputDatas: PosInputDatas,
     private val mKernelApi: EmvNfcKernelApi,
     private val iBeeper: BeeperImpl,
     private val iLed: LEDDriverImpl
@@ -45,7 +44,16 @@ class MyEmvListener @Inject constructor(
     private val _reasonsEMV = MutableLiveData<EmvReasonsModel>()
     val reasonsEMV: LiveData<EmvReasonsModel> get() = _reasonsEMV
 
+    private val _posInputDatas: MutableLiveData<PosInputDatas> = MutableLiveData()
+    val posInputDatas: LiveData<PosInputDatas> get() = _posInputDatas
+
+
+    fun setPosData(posData: PosInputDatas) {
+        _posInputDatas.postValue(posData)
+    }
+
     override fun onRequestSetAmount() {
+        Log.i(TAG, "onRequestSetAmount: ${posInputDatas.value?.amt}")
         Log.i(TAG, "MainActivity  onRequestSetAmount")
     }
 
@@ -76,7 +84,7 @@ class MyEmvListener @Inject constructor(
             }
             if (hstr3 != "") {
                 track3 = String(Funs.StrToHexByte(hstr3))
-                posInputDatas = posInputDatas.update(track3 = track3)
+                _posInputDatas.postValue(_posInputDatas.value?.update(track3 = track3))
             }
             var index = track2.indexOf("=")
             if (index != -1) {
@@ -84,51 +92,72 @@ class MyEmvListener @Inject constructor(
                 index++
                 val EXPIRED_DATE = track2.substring(index, index + 4)
                 val SERVICE_CODE = track2.substring(index + 4, index + 4 + 3)
-                posInputDatas = posInputDatas.update(
-                    pan = PAN,
-                    track2 = track2,
-                    szExpDate = EXPIRED_DATE
+                _posInputDatas.postValue(
+                    _posInputDatas.value?.update(
+                        pan = PAN,
+                        track2 = track2,
+                        szExpDate = EXPIRED_DATE
+                    )
                 )
 
             }
-            posInputDatas = posInputDatas.update(swipedMode = CardTypeConstant.MSR)
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_MSR)
-                .setMessage(cardNo ?: "").build()
+            _posInputDatas.postValue(_posInputDatas.value?.update(swipedMode = CardTypeConstant.MSR))
+
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_MSR)
+                    .setMessage(cardNo ?: "").build()
+            )
         } else if (checkCardResult == CheckCardResult.NEED_FALLBACK) {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_ERROR)
-                .setMessage("NEED_FALLBACK ! Please Tap or Swipe Card!").build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_ERROR)
+                    .setMessage("NEED_FALLBACK ! Please Tap or Swipe Card!").build()
+            )
         } else if (checkCardResult == CheckCardResult.BAD_SWIPE) {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_ERROR)
-                .setMessage("BAD_SWIPE ! Please Tap or Swipe Card!").build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_ERROR)
+                    .setMessage("BAD_SWIPE ! Please Tap or Swipe Card!").build()
+            )
         } else if (checkCardResult == CheckCardResult.NOT_ICC) {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_ERROR)
-                .setMessage("NOT_ICC, Remove and Insert Card Again!").build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_ERROR)
+                    .setMessage("NOT_ICC, Remove and Insert Card Again!").build()
+            )
         } else if (checkCardResult == CheckCardResult.TIMEOUT) {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_TIMEOUT)
-                .setMessage("Check Card Time Out!").build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_TIMEOUT)
+                    .setMessage("Check Card Time Out!").build()
+            )
         } else if (checkCardResult == CheckCardResult.CANCEL) {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.CANCEL_OPERATION)
-                .setMessage("Cancel Operation!").build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.CANCEL_OPERATION)
+                    .setMessage("Cancel Operation!").build()
+            )
         } else if (checkCardResult == CheckCardResult.DEVICE_BUSY) {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_ERROR)
-                .setMessage("Check Card Device Busy !").build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_ERROR)
+                    .setMessage("Check Card Device Busy !").build()
+            )
         } else if (checkCardResult == CheckCardResult.USE_ICC_CARD) {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_ERROR)
-                .setMessage("Chip Card! Please Use Contact Interface,Please Insert Card!")
-                .build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_ERROR)
+                    .setMessage("Chip Card! Please Use Contact Interface,Please Insert Card!")
+                    .build()
+            )
         } else if (checkCardResult == CheckCardResult.MULT_CARD) {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_ERROR)
-                .setMessage("Multi Card! Please Insert One Card!")
-                .build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_ERROR)
+                    .setMessage("Multi Card! Please Insert One Card!")
+                    .build()
+            )
         }
     }
 
@@ -142,10 +171,12 @@ class MyEmvListener @Inject constructor(
         if (i == 1) {
             mKernelApi.selectApplication(0)
         } else {
-            _reasonsEMV.value = EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_APP_SELECT)
-                .setMessage(arrayList.joinToString(", "))
-                .build()
+            _reasonsEMV.postValue(
+                EmvReasonsModel.Builder()
+                    .setReason(EmvReason.MESSAGE_APP_SELECT)
+                    .setMessage(arrayList.joinToString(", "))
+                    .build()
+            )
         }
     }
 
@@ -154,7 +185,8 @@ class MyEmvListener @Inject constructor(
     override fun onRequestPinEntry(pinEntrySource: PinEntrySource) {
         Log.i(TAG, "MainActivity  onRequestPinEntry request online pin")
         if (pinEntrySource == PinEntrySource.KEYPAD) {
-            posInputDatas = posInputDatas.update(pan = GetCardNo())
+            _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
+
             //TODO Handle emv_proc_onlinePin()
         }
     }
@@ -165,7 +197,7 @@ class MyEmvListener @Inject constructor(
 
     override fun onRequestConfirmCardno() {
         Log.d(TAG, "CardNo:" + GetCardNo())
-        posInputDatas.swipedMode = CardTypeConstant.IC
+        _posInputDatas.postValue(_posInputDatas.value?.update(swipedMode = CardTypeConstant.IC))
         iBeeper.startBeep(1, 200)
         try {
             iLed.turnOn(1)
@@ -177,11 +209,13 @@ class MyEmvListener @Inject constructor(
         }
 
         val pan = GetCardNo()
-        posInputDatas = posInputDatas.update(
-            pan = pan,
-            track2 = mKernelApi.getValByTag(0x57),
-            szCardSeqNo = mKernelApi.getValByTag(0x5F34),
-            szExpDate = mKernelApi.getValByTag(0x5F24)
+        _posInputDatas.postValue(
+            _posInputDatas.value?.update(
+                pan = pan,
+                track2 = mKernelApi.getValByTag(0x57),
+                szCardSeqNo = mKernelApi.getValByTag(0x5F34),
+                szExpDate = mKernelApi.getValByTag(0x5F24)
+            )
         )
         mKernelApi.sendConfirmCardnoResult(true)
     }
@@ -192,35 +226,40 @@ class MyEmvListener @Inject constructor(
     }
 
     override fun onRequestOnlineProcess(cardTlvData: String, dataKsn: String) {
-        posInputDatas =
-            posInputDatas.update(
+        _posInputDatas.postValue(
+            _posInputDatas.value?.update(
                 pan = GetCardNo(),
                 track2 = mKernelApi.getValByTag(0x57),
                 szCardSeqNo = mKernelApi.getValByTag(0x5F34),
                 szExpDate = mKernelApi.getValByTag(0x5F24),
                 file55 = cardTlvData
             )
+        )
         val TVR = mKernelApi.getValByTag(0x95)
         Log.i(TAG, "  onRequestOnlineProcess TVR:$TVR")
         val PSN = mKernelApi.getValByTag(0x5F34)
         Log.i(TAG, "MainActivity  onRequestOnlineProcess PSN:$PSN")
 
-        _isRequestOnlineProcess.value = true
-        _reasonsEMV.value = EmvReasonsModel.Builder().setReason(EmvReason.MESSAGE_REQUEST_ONLINE)
-            .setMessage("onConfirm PIN")
-            .build()
+        _isRequestOnlineProcess.postValue(true)
+        _reasonsEMV.postValue(
+            EmvReasonsModel.Builder().setReason(EmvReason.MESSAGE_REQUEST_ONLINE)
+                .setMessage("onConfirm PIN")
+                .build()
+        )
     }
 
 
     override fun onReturnBatchData(cardTlvData: String) {
-        posInputDatas = posInputDatas.update(
-            pan = GetCardNo(),
-            track2 = mKernelApi.getValByTag(0x57),
-            szCardSeqNo = mKernelApi.getValByTag(0x5F34),
-            szExpDate = mKernelApi.getValByTag(0x5F24),
-            file55 = cardTlvData
+        _posInputDatas.postValue(
+            _posInputDatas.value?.update(
+                pan = GetCardNo(),
+                track2 = mKernelApi.getValByTag(0x57),
+                szCardSeqNo = mKernelApi.getValByTag(0x5F34),
+                szExpDate = mKernelApi.getValByTag(0x5F24),
+                file55 = cardTlvData
+            )
         )
-        _isRequestOnlineProcess.value = true
+        _isRequestOnlineProcess.postValue(true)
     }
 
 
@@ -238,37 +277,39 @@ class MyEmvListener @Inject constructor(
         if (transactionResult == TransactionResult.ONLINE_APPROVAL || transactionResult == TransactionResult.OFFLINE_APPROVAL) {
             mKernelApi.abortKernel()
             //TODO pago aceptado
-            _result.value = UrovoResult.Success(posInputDatas)
+            _result.postValue(UrovoResult.Success(posInputDatas.value!!))
         } else if (transactionResult == TransactionResult.ONLINE_DECLINED) {
             mKernelApi.abortKernel()
-            _result.value = UrovoResult.Error(Throwable("online decline!"))
+            _result.postValue(UrovoResult.Error(Throwable("online decline!")))
         } else if (transactionResult == TransactionResult.OFFLINE_DECLINED) {
-            _result.value = UrovoResult.Error(Throwable("offline decline!"))
+            _result.postValue(UrovoResult.Error(Throwable("offline decline!")))
         } else if (transactionResult == TransactionResult.ICC_CARD_REMOVED) {
-            _result.value = UrovoResult.Error(Throwable("icc card removed!"))
+            _result.postValue(UrovoResult.Error(Throwable("icc card removed!")))
         } else if (transactionResult == TransactionResult.TERMINATED) {
-            _result.value = UrovoResult.Error(Throwable("terminated!"))
+            _result.postValue(UrovoResult.Error(Throwable("terminated!")))
         } else if (transactionResult == TransactionResult.CANCELED_OR_TIMEOUT) {
-            _result.value = UrovoResult.Error(Throwable("canceled or timeout!"))
+            _result.postValue(UrovoResult.Error(Throwable("canceled or timeout!")))
         } else if (transactionResult == TransactionResult.CANCELED) {
-            _result.value = UrovoResult.Error(Throwable("canceled!"))
+            _result.postValue(UrovoResult.Error(Throwable("canceled!")))
         } else if (transactionResult == TransactionResult.CARD_BLOCKED_APP_FAIL) {
-            _result.value = UrovoResult.Error(Throwable("card blocked!"))
+            _result.postValue(UrovoResult.Error(Throwable("card blocked!")))
         } else if (transactionResult == TransactionResult.APPLICATION_BLOCKED_APP_FAIL) {
-            _result.value = UrovoResult.Error(Throwable("application blocked!"))
+            _result.postValue(UrovoResult.Error(Throwable("application blocked!")))
         } else if (transactionResult == TransactionResult.INVALID_ICC_DATA) {
-            _result.value = UrovoResult.Error(Throwable("invalid icc data!"))
+            _result.postValue(UrovoResult.Error(Throwable("invalid icc data!")))
         } else if (transactionResult == TransactionResult.NO_EMV_APPS) {
-            _result.value = UrovoResult.Error(Throwable("no emv apps!"))
+            _result.postValue(UrovoResult.Error(Throwable("no emv apps!")))
         }
     }
 
     override fun onRequestDisplayText(displayText: ContantPara.DisplayText) {
         Log.i(TAG, "MainActivity  onRequestDisplayText")
-        _reasonsEMV.value = EmvReasonsModel.Builder()
-            .setReason(EmvReason.MESSAGE_CARD_MESSAGE)
-            .setMessage(displayText.name)
-            .build()
+        _reasonsEMV.postValue(
+            EmvReasonsModel.Builder()
+                .setReason(EmvReason.MESSAGE_CARD_MESSAGE)
+                .setMessage(displayText.name)
+                .build()
+        )
     }
 
 
@@ -303,10 +344,12 @@ class MyEmvListener @Inject constructor(
     //contactless Tip message callback
     override fun onNFCrequestTipsConfirm(msgID: NfcTipMessageID, msg: String) {
         Log.i(TAG, "onNFCrequestTipsConfirm: $msg")
-        _reasonsEMV.value = EmvReasonsModel.Builder()
-            .setReason(EmvReason.MESSAGE_CARD_MESSAGE)
-            .setMessage(msg)
-            .build()
+        _reasonsEMV.postValue(
+            EmvReasonsModel.Builder()
+                .setReason(EmvReason.MESSAGE_CARD_MESSAGE)
+                .setMessage(msg)
+                .build()
+        )
     }
 
 
@@ -314,16 +357,21 @@ class MyEmvListener @Inject constructor(
     override fun onNFCrequestOnline() {
         //should send to host
         Log.d(TAG, "onNFCrequestOnline ")
-        _isRequestOnlineProcess.value = true
-        _reasonsEMV.value = EmvReasonsModel.Builder().setMessage("onConfirm PIN")
-            .setReason(EmvReason.MESSAGE_REQUEST_ONLINE).build()
+        _isRequestOnlineProcess.postValue(true)
+
+        _reasonsEMV.postValue(
+            EmvReasonsModel.Builder().setMessage("onConfirm PIN")
+                .setReason(EmvReason.MESSAGE_REQUEST_ONLINE).build()
+        )
     }
 
 
     override fun onNFCrequestImportPin(type: Int, lasttimeFlag: Int, amt: String) {
         Log.i(TAG, "onNFCrequestImportPin: ")
-        _reasonsEMV.value = EmvReasonsModel.Builder()
-            .setReason(EmvReason.REQUEST_ONLINEPIN).setMessage("onConfirm PIN").build()
+        _reasonsEMV.postValue(
+            EmvReasonsModel.Builder()
+                .setReason(EmvReason.REQUEST_ONLINEPIN).setMessage("onConfirm PIN").build()
+        )
         //TODO emv_proc_onlinePin()
     }
 
@@ -336,8 +384,10 @@ class MyEmvListener @Inject constructor(
 
     override fun onNFCErrorInfor(erroCode: NfcErrMessageID, strErrInfo: String) {
         Log.d(TAG, "onNFCErrorInfor: erroCode:$erroCode - onErrorInfor:$strErrInfo")
-        _reasonsEMV.value = EmvReasonsModel.Builder()
-            .setReason(EmvReason.MESSAGE_ERROR).setMessage(strErrInfo).build()
+        _reasonsEMV.postValue(
+            EmvReasonsModel.Builder()
+                .setReason(EmvReason.MESSAGE_ERROR).setMessage(strErrInfo).build()
+        )
     }
 
 
@@ -347,7 +397,7 @@ class MyEmvListener @Inject constructor(
         val TrackData = hashtable["TRACKDATA"]
         val EmvData = hashtable["EMVDATA"]
         val QPBOCType = hashtable["QPBOCTYPE"]
-        posInputDatas = posInputDatas.update(swipedMode = CardTypeConstant.RFID)
+        _posInputDatas.postValue(_posInputDatas.value?.update(swipedMode = CardTypeConstant.RFID))
         var tagValue = mKernelApi.getValByTag(0x9F26)
         if (tagValue != null) {
             Log.d(TAG, "tagValue 0x9F26:$tagValue")
@@ -382,13 +432,13 @@ class MyEmvListener @Inject constructor(
         Log.d(TAG, "TrackData:$TrackData")
         Log.d(TAG, "EmvData:$EmvData")
 
-        posInputDatas = posInputDatas.update(
+        _posInputDatas.postValue(_posInputDatas.value?.update(
             pan = GetCardNo(),
             track2 = mKernelApi.getValByTag(0x57),
             szCardSeqNo = mKernelApi.getValByTag(0x5F34),
             szExpDate = mKernelApi.getValByTag(0x5F24),
             file55 = EmvData
-        )
+        ))
     }
 
 
@@ -406,4 +456,5 @@ class MyEmvListener @Inject constructor(
         Log.i(TAG, "GetCardNo: $cardno")
         return cardno
     }
+
 }

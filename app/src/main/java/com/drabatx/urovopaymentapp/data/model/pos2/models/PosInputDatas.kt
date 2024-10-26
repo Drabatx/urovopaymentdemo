@@ -1,6 +1,7 @@
 package com.drabatx.urovopaymentapp.data.model.pos2.models
 
 import com.drabatx.urovopaymentapp.data.model.pos2.db.TranslogModel
+import com.google.gson.Gson
 import java.io.Serializable
 
 /**
@@ -264,6 +265,7 @@ class PosInputDatas private constructor(
      */
     var map: HashMap<String, Any>? = null
 ) : Serializable {
+
     fun update(
         userNo: String? = this.userNo,
         nodeID: String? = this.nodeID,
@@ -529,3 +531,12 @@ class PosInputDatas private constructor(
     }
 }
 
+fun PosInputDatas.toJson(): String {
+    val gson = Gson()
+    return gson.toJson(this)
+}
+
+fun String.toPosInputDatas(): PosInputDatas {
+    val gson = Gson()
+    return gson.fromJson(this, PosInputDatas::class.java)
+}

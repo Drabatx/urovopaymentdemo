@@ -67,6 +67,7 @@ dependencies {
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
     implementation(libs.androidx.material3)
+    implementation(libs.androidx.runtime.livedata)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -81,14 +82,11 @@ dependencies {
     //dagger
     implementation(libs.dagger.hilt)
     kapt (libs.dagger.compiler)
+    implementation(libs.hilt.navigation.compose)
     //Corutinas
     implementation(libs.kotlin.coroutines)
     implementation(libs.androidx.viewmodel.compose)
-    implementation(libs.hilt.navigation.compose)
-    //cafe-adriel-voyager
-    implementation(libs.cafe.adriel.voyager.navigation)
-    implementation(libs.cafe.adriel.voyager.screen.model)
-    implementation(libs.cafe.adriel.voyager.transitions)
-    implementation(libs.cafe.adriel.voyager.hilt)
-    implementation(libs.cafe.adriel.voyager.livedata)
+
+    implementation(libs.google.code.gson)
+    implementation(libs.airbnb.lottie)
 }

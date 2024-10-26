@@ -1,33 +1,57 @@
 package com.drabatx.urovopaymentapp.di
 
-import com.drabatx.urovopaymentapp.data.model.pos2.models.PosInputDatas
+import android.content.Context
 import com.drabatx.urovopaymentapp.domain.repository.MyEmvListener
-import com.drabatx.urovopaymentapp.presentation.view.factory.MyEmvListenerFactory
 import com.urovo.i9000s.api.emv.EmvNfcKernelApi
 import com.urovo.sdk.beeper.BeeperImpl
+import com.urovo.sdk.insertcard.InsertCardHandlerImpl
 import com.urovo.sdk.led.LEDDriverImpl
+import com.urovo.sdk.magcard.MagCardReaderImpl
+import com.urovo.sdk.pinpad.PinPadProviderImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object UrovoModule {
+    @Provides
+    @Singleton
+    fun provideApplicationContext(@ApplicationContext context: Context): Context {
+        return context
+    }
 
     @Provides
     @Singleton
-    fun provideKernelApi() =  EmvNfcKernelApi.getInstance()
+    fun provideEmvNfcKernelApi(): EmvNfcKernelApi {
+        return EmvNfcKernelApi.getInstance()
+    }
 
     @Provides
     @Singleton
-    fun provideIBeeper() = BeeperImpl.getInstance()
+    fun provideIBeeper(): BeeperImpl = BeeperImpl.getInstance()
 
     @Provides
     @Singleton
-    fun provideILed() = LEDDriverImpl.getInstance()
+    fun provideILed(): LEDDriverImpl = LEDDriverImpl.getInstance()
+
+
+    @Provides
+    @Singleton
+    fun provideMagCardReaderImpl(): MagCardReaderImpl = MagCardReaderImpl.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideInsertCardHandlerImpl() = InsertCardHandlerImpl.getInstance()
+
+    @Provides
+    @Singleton
+    fun providePinPadProviderImpl() = PinPadProviderImpl.getInstance()
+
 }
 
 @Module
@@ -35,11 +59,12 @@ object UrovoModule {
 object CardReaderModule {
 
     @Provides
-    fun provideMyEmvListenerFactory(
+    fun provideMyEmvListener(
         mKernelApi: EmvNfcKernelApi,
         iBeeper: BeeperImpl,
         iLed: LEDDriverImpl
-    ): MyEmvListenerFactory {
-        return MyEmvListenerFactory(mKernelApi, iBeeper, iLed)
+    ): MyEmvListener {
+        return MyEmvListener(mKernelApi, iBeeper, iLed)
     }
+
 }
