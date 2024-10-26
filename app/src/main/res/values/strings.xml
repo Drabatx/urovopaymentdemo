@@ -19,5 +19,6 @@
     <string name="please_read_the_card_in_the_following_way">Please read the card in the following way</string>
     <string name="amount_input">Ingrese el monto</string>
     <string name="example_icon">Generic Icon</string>
+    <string name="accept">Aceptar</string>
 
 </resources>

@@ -1,5 +1,6 @@
 package com.drabatx.urovopaymentapp.presentation.view.dialogs
 
+import android.graphics.drawable.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -18,7 +19,7 @@ import com.drabatx.urovopaymentapp.R
 fun MessageDialog(
     title: String,
     text: String,
-    icon: ImageVector? = null,
+    icon: @Composable (() -> Unit)? = null,
     showDialog: Boolean,
     onConfirm: () -> Unit = {},
     primaryButtonText: String? = null,
@@ -29,9 +30,7 @@ fun MessageDialog(
     if (showDialogR) {
         AlertDialog(
             icon = {
-                icon?.let {
-                    Icon(icon, contentDescription = stringResource(R.string.example_icon))
-                }
+                icon?.invoke()
             },
             title = {
                 Text(text = title)

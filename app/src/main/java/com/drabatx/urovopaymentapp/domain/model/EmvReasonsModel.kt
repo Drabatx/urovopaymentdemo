@@ -8,7 +8,11 @@ enum class EmvReason {
     MESSAGE_TIMEOUT,
     CANCEL_OPERATION,
     MESSAGE_APP_SELECT,
-    MESSAGE_CARD_MESSAGE
+    MESSAGE_CARD_MESSAGE,
+    MESSAGE_PAN,
+    MESSAGE_CANCEL,
+    MESSAGE_REQUEST_PIN,
+    MESSAGE_PRINT_FINISH
 }
 data class EmvReasonsModel(val message: String, val reason: EmvReason) {
 

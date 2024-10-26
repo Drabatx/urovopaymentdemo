@@ -186,8 +186,10 @@ class MyEmvListener @Inject constructor(
         Log.i(TAG, "MainActivity  onRequestPinEntry request online pin")
         if (pinEntrySource == PinEntrySource.KEYPAD) {
             _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
+            if (pinEntrySource == PinEntrySource.KEYPAD) {
+                _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
 
-            //TODO Handle emv_proc_onlinePin()
+            }
         }
     }
 
@@ -432,13 +434,15 @@ class MyEmvListener @Inject constructor(
         Log.d(TAG, "TrackData:$TrackData")
         Log.d(TAG, "EmvData:$EmvData")
 
-        _posInputDatas.postValue(_posInputDatas.value?.update(
-            pan = GetCardNo(),
-            track2 = mKernelApi.getValByTag(0x57),
-            szCardSeqNo = mKernelApi.getValByTag(0x5F34),
-            szExpDate = mKernelApi.getValByTag(0x5F24),
-            file55 = EmvData
-        ))
+        _posInputDatas.postValue(
+            _posInputDatas.value?.update(
+                pan = GetCardNo(),
+                track2 = mKernelApi.getValByTag(0x57),
+                szCardSeqNo = mKernelApi.getValByTag(0x5F34),
+                szExpDate = mKernelApi.getValByTag(0x5F24),
+                file55 = EmvData
+            )
+        )
     }
 
 

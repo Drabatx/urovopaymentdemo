@@ -1,5 +1,6 @@
 package com.drabatx.urovopaymentapp.presentation.view.screens
 
+import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,7 +10,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -20,7 +25,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -34,13 +41,17 @@ import com.airbnb.lottie.compose.rememberLottieComposition
 import com.drabatx.urovopaymentapp.R
 import com.drabatx.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.drabatx.urovopaymentapp.data.model.pos2.models.toPosInputDatas
+import com.drabatx.urovopaymentapp.domain.model.EmvReason
+import com.drabatx.urovopaymentapp.domain.repository.MESSAGE_TIMEOUT
+import com.drabatx.urovopaymentapp.presentation.view.dialogs.LoadingDialog
+import com.drabatx.urovopaymentapp.presentation.view.dialogs.MessageDialog
 import com.drabatx.urovopaymentapp.presentation.view.viewmodels.CardReaderViewModel
 import com.drabatx.urovopaymentapp.presentation.view.widgets.MyTopBar
 import com.drabatx.urovopaymentapp.utils.formatCardNumber
 import com.urovo.i9000s.api.emv.ContantPara
 import kotlinx.coroutines.Dispatchers
 
-
+private const val TAG = "CardReaderScreen"
 @Composable
 fun CardReaderScreen(
     navController: NavController,
@@ -50,7 +61,68 @@ fun CardReaderScreen(
     val monto by remember { mutableStateOf("0.00") }
     val noTarjeta by remember { mutableStateOf("") }
     val posInputData by viewModel.livePosInputDatas.observeAsState(inpuDatas.toPosInputDatas())
+    val reasonsState by viewModel.reasonsEMV.observeAsState()
+
     Scaffold(topBar = { MyTopBar("Leer Tarjeta") }) { peddingValues ->
+        reasonsState?.let {
+            Log.i(TAG, "CardReaderScreen: ${it.reason}")
+            when (it.reason) {
+                EmvReason.MESSAGE_CARD_MESSAGE -> {
+                    LoadingDialog(isLoading = true)
+                }
+
+                EmvReason.MESSAGE_PAN -> {
+
+                }
+                EmvReason.MESSAGE_ERROR, EmvReason.MESSAGE_TIMEOUT -> {
+                    MessageDialog(
+                        title = it.reason.name,
+                        text = it.message,
+                        showDialog = true,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Filled.Error,
+                                contentDescription = "Error Icon",
+                                tint = Color.Red, // Cambia el color a rojo
+                                modifier = Modifier.size(24.dp) // Tamaño del icono
+                            )
+                        },
+                        primaryButtonText = stringResource(
+                            R.string.accept
+                        ),
+                        onConfirm = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+                EmvReason.MESSAGE_MSR -> {
+                    MessageDialog(
+                        title = it.reason.name,
+                        text = it.message,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Filled.Info,
+                                contentDescription = "Info Icon",
+                                tint = Color.Blue, // Cambia el color a rojo
+                                modifier = Modifier.size(24.dp) // Tamaño del icono
+                            )
+                        },
+                        showDialog = true,
+
+                        primaryButtonText = stringResource(
+                            R.string.accept
+                        ),
+                        onConfirm = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+                else -> {
+                }
+            }
+        }
         CardReaderBody(peddingValues, posInputData)
     }
     LaunchedEffect(Dispatchers.IO) {

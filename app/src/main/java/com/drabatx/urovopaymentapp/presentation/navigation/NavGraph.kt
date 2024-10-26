@@ -1,6 +1,7 @@
 package com.drabatx.urovopaymentapp.presentation.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -22,16 +23,15 @@ sealed class Screen(val route: String) {
 @Composable
 fun SetupNavGraph(navController: NavHostController) {
 
-    val cardReaderViewModel: CardReaderViewModel = viewModel()
-    val inputAmountViewModel: InputAmountViewModel = viewModel()
 
     NavHost(navController = navController, startDestination = Screen.InputAmount.route) {
         composable(route = Screen.InputAmount.route) {
+            val inputAmountViewModel: InputAmountViewModel = hiltViewModel()
             InputAmountScreen(navController, inputAmountViewModel)
         }
         composable(route = Screen.CardReader.route) { backStackEntry ->
+            val cardReaderViewModel: CardReaderViewModel = hiltViewModel()
             val posInputDataString = backStackEntry.arguments?.getString("posInputDataString") ?: ""
-
             CardReaderScreen(navController, posInputDataString, viewModel = cardReaderViewModel)
         }
     }

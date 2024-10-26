@@ -54,7 +54,7 @@ class CardReaderViewModel @Inject constructor(
                     put("emvOption", ContantPara.EmvOption.START) // START_WITH_FORCE_ONLINE
                     put("amount", amount)
                     put("cashbackAmount", "0")
-                    put("checkCardTimeout", "60") // Check Card timeout in seconds
+                    put("checkCardTimeout", "10") // Check Card timeout in seconds
                     put("transactionType", "00") // 00-goods, 01-cash, 09-cashback, 20-refund
                     put("isEnterAmtAfterReadRecord", false)
                     put("supportDRL", true) // support Visa DRL?
