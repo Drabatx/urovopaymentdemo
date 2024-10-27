@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -70,7 +71,26 @@ fun CardReaderScreen(
                 EmvReason.MESSAGE_CARD_MESSAGE -> {
                     LoadingDialog(isLoading = true)
                 }
-
+                EmvReason.MESSAGE_REQUEST_PIN -> {
+                    MessageDialog(
+                        title = it.reason.name,
+                        text = it.message,
+                        showDialog = true,
+                        icon = {
+                            Icon(
+                                imageVector = Icons.Filled.Notifications,
+                                contentDescription = "Error Icon",
+                                tint = Color.Red, // Cambia el color a rojo
+                                modifier = Modifier.size(24.dp) // Tamaño del icono
+                            )
+                        },
+                        primaryButtonText = stringResource(
+                            R.string.accept
+                        ),
+                        onConfirm = {
+                        }
+                    )
+                }
                 EmvReason.MESSAGE_PAN -> {
 
                 }

@@ -1,6 +1,8 @@
 package com.drabatx.urovopaymentapp.domain.repository
 
+import android.device.SEManager
 import android.os.Bundle
+import android.os.IInputActionListener
 import android.os.RemoteException
 import android.util.Log
 import androidx.lifecycle.LiveData
@@ -61,7 +63,8 @@ class MyEmvListener @Inject constructor(
         checkCardResult: CheckCardResult,
         hashtable: Hashtable<String, String>
     ) {
-        Log.i(TAG, "MainActivity  onReturnCheckCardResult checkCardResult =$checkCardResult")
+
+        Log.i(TAG, "onReturnCheckCardResult checkCardResult =$checkCardResult")
         Log.d(TAG, hashtable.toString())
         if (checkCardResult == CheckCardResult.MSR) {
             val stripStr = hashtable["StripInfo"]!!.uppercase(Locale.getDefault())
@@ -188,7 +191,7 @@ class MyEmvListener @Inject constructor(
             _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
             if (pinEntrySource == PinEntrySource.KEYPAD) {
                 _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
-
+                _reasonsEMV.postValue(EmvReasonsModel("Request Pin", EmvReason.MESSAGE_REQUEST_PIN))
             }
         }
     }
@@ -219,6 +222,7 @@ class MyEmvListener @Inject constructor(
                 szExpDate = mKernelApi.getValByTag(0x5F24)
             )
         )
+        //Se auto confirma la tarjeta
         mKernelApi.sendConfirmCardnoResult(true)
     }
 
@@ -324,11 +328,7 @@ class MyEmvListener @Inject constructor(
             val pinTryTimes: Int = mKernelApi.getOfflinePinTryTimes()
             bundle.putInt("PinTryTimes", pinTryTimes)
             bundle.putBoolean("isFirstTime", true)
-            if (pinTryTimes == 1) {
-                //TODO emv_proc_onlinePin()
-            } else {
-                //TODO emv_proc_onlinePin()
-            }
+            proc_offlinePin(pinEntryType, pinTryTimes == 1, bundle)
         } else {
         }
     }
@@ -459,6 +459,218 @@ class MyEmvListener @Inject constructor(
         ) cardno = cardno.substring(0, cardno.length - 1)
         Log.i(TAG, "GetCardNo: $cardno")
         return cardno
+    }
+
+    fun proc_offlinePin(pinEntryType: Int, isLastPinTry: Boolean, bundle: Bundle): Int {
+        var iret = 0
+
+        // TODO Auto-generated method stub
+        val emvBundle = bundle
+
+
+        Log.d(
+            "applog",
+            "proc_offlinePin pinEntryType = $pinEntryType isLastPinTry=$isLastPinTry"
+        )
+
+        val paramVar = Bundle()
+        paramVar.putInt("inputType", 3) //Offline PlainPin
+        paramVar.putInt("CardSlot", 0)
+
+        paramVar.putBoolean("sound", true)
+        paramVar.putBoolean("onlinePin", false)
+        paramVar.putBoolean("FullScreen", true)
+        paramVar.putLong("timeOutMS", 60000)
+        paramVar.putString("supportPinLen", "0,4,5,6,7,8,9,10,11,12")
+        paramVar.putString("title", "Security Keyboard")
+        paramVar.putBoolean("randomKeyboard", false)
+        val pinTryTimes = bundle.getInt("PinTryTimes")
+        val isFirst = bundle.getBoolean("isFirstTime", false)
+        Log.d("applog", "PinTryTimes:$pinTryTimes")
+        if (isLastPinTry) {
+            if (isFirst) paramVar.putString("message", "Please input PIN \nLast PIN Try")
+            else paramVar.putString("message", "Please input PIN \nWrong PIN \nLast Pin Try")
+        } else {
+            if (isFirst) paramVar.putString("message", "Please input PIN \n")
+            else {
+                paramVar.putString(
+                    "message",
+                    "Please input PIN \nWrong PIN \nPin Try Times:$pinTryTimes"
+                )
+            }
+        }
+
+
+        if (pinEntryType == 1) {
+            paramVar.putInt("inputType", 4) //Offline CipherPin
+
+            val pub = emvBundle.getByteArray("pub")
+            val publen = emvBundle.getIntArray("publen")
+            val exp = emvBundle.getByteArray("exp")
+            val explen = emvBundle.getIntArray("explen")
+
+            Log.d("applog", "ModuleLen = " + publen!![0] + ": " + Funs.bytesToHexString(pub))
+            Log.d("applog", "ExponentLen = " + explen!![0] + ": " + Funs.bytesToHexString(exp))
+
+
+            val ModuleLen = publen!![0]
+            val ExponentLen = explen!![0]
+            val Module = ByteArray(ModuleLen)
+            val Exponent = ByteArray(ExponentLen)
+
+            if (ModuleLen == 0 || ExponentLen == 0) {
+                mKernelApi.sendOfflinePINVerifyResult(-198)
+                return 0
+            }
+
+            System.arraycopy(pub, 0, Module, 0, ModuleLen)
+            System.arraycopy(exp, 0, Exponent, 0, ExponentLen)
+
+            paramVar.putInt("ModuleLen", ModuleLen) //Modulus length
+            paramVar.putString("Module", Funs.bytesToHexString(Module)) //Module
+            paramVar.putInt("ExponentLen", ExponentLen) //Exponent length
+            paramVar.putString("Exponent", Funs.bytesToHexString(Exponent)) //Exponent
+        }
+
+
+        Log.d("applog", "proc_offlinePin getPinBlockEx start")
+
+        paramVar.putInt("PinTryMode", 1)
+        paramVar.putString("ErrorMessage", "Incorrect PIN, # More Retries")
+        paramVar.putString("ErrorMessageLast", "Incorrect PIN, Last Chance")
+
+
+        val se = SEManager()
+        iret = se.getPinBlockEx(paramVar, object : IInputActionListener.Stub() {
+            override fun onInputChanged(type: Int, result: Int, bundle: Bundle) {
+                val resultBundle = bundle
+                try {
+                    //    7101~7115 The number of remaining PIN tries(7101 PIN BLOCKED   7102 the last one chance  7103 two chances ....)
+                    //		7006 PIN length error
+                    //		7010 防穷举出错
+                    //		7016 Wrong PIN
+                    //		7071 The return code is wrong
+                    //		7072 IC command failed
+                    //		7073 Card data error
+                    //		7074 PIN BLOCKED
+                    //		7075 Encryption error
+                    //
+                    //The offline PIN verification result is sent to the kernel
+                    //   use api EmvApi.sendOfflinePINVerifyResult();
+                    //		    (-198)     //Return code error
+                    //		    (-202)     //IC command failed
+                    //		    (-192)     //PIN BLOCKED
+                    //          (-199)     //user cancel or Pinpad timeout
+                    //		    (1)        //bypass
+                    //		    (0)        //success
+
+                    Log.i(
+                        "applog",
+                        "proc_offlinePin：getPinBlockEx===onInputChanged：type=$type，result=$result"
+                    )
+
+                    if (type == 2) { // entering PIN
+                    } else if (type == 0) //bypass
+                    {
+                        if (result == 0) {
+                            Log.d("applog", "proc_offlinePin bypass")
+                            mKernelApi.sendOfflinePINVerifyResult(1) //bypass
+                        } else {
+                            mKernelApi.sendOfflinePINVerifyResult(-198) //return code error
+                        }
+                    } else if (type == 3) //Offline plaintext
+                    {
+                        Log.d("applog", "proc_offlinePin Plaintext offline")
+                        if (result == 0) {
+                            mKernelApi.sendOfflinePINVerifyResult(0) //Offline plaintext verify successfully
+                        } else { //Incorrect PIN, try again
+                            val arg1Str = result.toString() + ""
+                            if (arg1Str.length >= 4 && "71" == arg1Str.subSequence(0, 2)) {
+                                if ("7101" == arg1Str) {
+                                    mKernelApi.sendOfflinePINVerifyResult(-192) //PIN BLOCKED
+                                } else {
+                                    if ("7102" == arg1Str) {
+                                        emvBundle.putBoolean("isFirstTime", false)
+                                        emvBundle.putInt("PinTryTimes", 1)
+                                        proc_offlinePin(
+                                            pinEntryType,
+                                            true,
+                                            emvBundle
+                                        ) //try again the last pin try
+                                    } else {
+                                        emvBundle.putBoolean("isFirstTime", false)
+                                        emvBundle.putInt(
+                                            "PinTryTimes",
+                                            (arg1Str.substring(2, 4).toInt() - 1)
+                                        )
+                                        proc_offlinePin(pinEntryType, false, emvBundle) //try again
+                                    }
+                                }
+                            } else if ("7074" == arg1Str) {
+                                mKernelApi.sendOfflinePINVerifyResult(-192) //PIN BLOCKED
+                            } else if ("7072" == arg1Str || "7073" == arg1Str) {
+                                mKernelApi.sendOfflinePINVerifyResult(-202) //IC command failed
+                            } else {
+                                mKernelApi.sendOfflinePINVerifyResult(-198) //Return code error
+                            }
+                        }
+                    } else if (type == 4) //Offline encryption PIN
+                    {
+                        Log.d("applog", "proc_offlinePin Offline encryption")
+                        if (result == 0) {
+                            mKernelApi.sendOfflinePINVerifyResult(0) //Offline encryption PIN verify successfully
+                        } else {
+                            val arg1Str = result.toString() + ""
+                            if (arg1Str.length >= 4 && "71" == arg1Str.subSequence(0, 2)) {
+                                if ("7101" == arg1Str) {
+                                    mKernelApi.sendOfflinePINVerifyResult(-192) //PIN BLOCKED
+                                } else {
+                                    Log.d(
+                                        "applog",
+                                        "proc_offlinePin Offline encryption entry pin again"
+                                    )
+                                    if ("7102" == arg1Str) {
+                                        emvBundle.putBoolean("isFirstTime", false)
+                                        emvBundle.putInt("PinTryTimes", 1)
+                                        proc_offlinePin(
+                                            pinEntryType,
+                                            true,
+                                            emvBundle
+                                        ) //try again the last pin try
+                                    } else {
+                                        emvBundle.putBoolean("isFirstTime", false)
+                                        emvBundle.putInt(
+                                            "PinTryTimes",
+                                            (arg1Str.substring(2, 4).toInt() - 1)
+                                        )
+                                        proc_offlinePin(pinEntryType, false, emvBundle) //try again
+                                    }
+                                }
+                            } else if ("7074" == arg1Str) {
+                                mKernelApi.sendOfflinePINVerifyResult(-192) //PIN BLOCKED
+                            } else if ("7072" == arg1Str || "7073" == arg1Str) {
+                                mKernelApi.sendOfflinePINVerifyResult(-202) //IC command failed(card removed)
+                            } else {
+                                mKernelApi.sendOfflinePINVerifyResult(-198) //Return code error
+                            }
+                        }
+                    } else if (type == 0x10) // click Cancel button
+                    {
+                        mKernelApi.sendOfflinePINVerifyResult(-199) //cancel
+                    } else if (type == 0x11) // pinpad timed out
+                    {
+                        mKernelApi.sendOfflinePINVerifyResult(-199) //timeout
+                    } else {
+                        mKernelApi.sendOfflinePINVerifyResult(-198) //Return code error
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    Log.d("applog", "proc_offlinePin exception")
+                }
+            }
+        })
+        if (iret == -3 || iret == -4) mKernelApi.sendOfflinePINVerifyResult(-198)
+        return iret
     }
 
 }
