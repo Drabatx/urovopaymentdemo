@@ -1,12 +1,12 @@
-package com.drabatx.urovopaymentapp.data.model.pos2.db
+package com.drabatx.urovopaymentapp.data.model.db
 
 import android.content.ContentValues
 import android.database.Cursor
 
-/**Model of the Reversal table, represents: reverse entity class
+/**Model of ScriptResult table, represents: script information
  * @author KuCoffee
  */
-class ReversalModel {
+class ScriprtResultModel {
     var indexID: String? = null
     var transType: String? = null
     var transStatus: String? = null
@@ -30,6 +30,7 @@ class ReversalModel {
         values.put("Reserve1", reserve1)
         values.put("Reserve2", reserve2)
         values.put("Reserve3", reserve3)
+
         return values
     }
 

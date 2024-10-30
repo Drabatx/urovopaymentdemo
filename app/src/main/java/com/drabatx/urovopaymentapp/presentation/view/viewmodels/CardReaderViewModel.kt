@@ -17,7 +17,6 @@ import javax.inject.Inject
 
 @HiltViewModel
 class CardReaderViewModel @Inject constructor(
-    private val mKernelApi: EmvNfcKernelApi,
     private val myEmvListener: MyEmvListener,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
@@ -26,44 +25,41 @@ class CardReaderViewModel @Inject constructor(
 
     val livePosInputDatas = myEmvListener.posInputDatas
 
-    val isRequestOnlineProcess = myEmvListener.isRequestOnlineProcess
-    val result = myEmvListener.result
+//    val isRequestOnlineProcess = myEmvListener.isRequestOnlineProcess
+//    val result = myEmvListener.result
     val reasonsEMV = myEmvListener.reasonsEMV
 
 
-    fun initEmvListener(posInputDatas: PosInputDatas, checkCardMode: ContantPara.CheckCardMode) {
-        myEmvListener.setPosData(posInputDatas)
-        mKernelApi.setListener(myEmvListener)
-        mKernelApi.setContext(context)
-        mKernelApi.LogOutEnable(1)
-        startKernelCoroutine(checkCardMode, posInputDatas.amt)
+    fun initEmvListener(posInputDatas: PosInputDatas) {
+        myEmvListener.initKernel(posInputDatas)
     }
 
-    private fun startKernelCoroutine(checkCardMode: ContantPara.CheckCardMode, amount:String) {
-        Log.d(TAG, "SDK version:" + mKernelApi.emVjarVers)
-        Log.d(TAG, "EMV lib version:" + mKernelApi.getEMVLibVers(ContantPara.CardSlot.ICC))
-        Log.d(TAG, "PayPass lib version:" + mKernelApi.getNFCLibVers(0x02.toByte()))
-        Log.d(TAG, "PayWave lib version:" + mKernelApi.getNFCLibVers(0x03.toByte()))
-        Log.d(TAG, "Amex lib version:" + mKernelApi.getNFCLibVers(0x04.toByte()))
-
-        viewModelScope.launch(Dispatchers.IO) {
-            try {
-                val data = Hashtable<String, Any>().apply {
-                    put("checkCardMode", checkCardMode)
-                    put("currencyCode", "484") //484 para MX
-                    put("emvOption", ContantPara.EmvOption.START) // START_WITH_FORCE_ONLINE
-                    put("amount", amount)
-                    put("cashbackAmount", "0")
-                    put("checkCardTimeout", "10") // Check Card timeout in seconds
-                    put("transactionType", "00") // 00-goods, 01-cash, 09-cashback, 20-refund
-                    put("isEnterAmtAfterReadRecord", false)
-                    put("supportDRL", true) // support Visa DRL?
-                }
-                // Aquí llamas a tu API
-                mKernelApi.startKernel(data)
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-    }
+//    private fun startKernelCoroutine(checkCardMode: ContantPara.CheckCardMode, amount:String) {
+//        Log.d(TAG, "SDK version:" + mKernelApi.emVjarVers)
+//        Log.d(TAG, "EMV lib version:" + mKernelApi.getEMVLibVers(ContantPara.CardSlot.ICC))
+//        Log.d(TAG, "PayPass lib version:" + mKernelApi.getNFCLibVers(0x02.toByte()))
+//        Log.d(TAG, "PayWave lib version:" + mKernelApi.getNFCLibVers(0x03.toByte()))
+//        Log.d(TAG, "Amex lib version:" + mKernelApi.getNFCLibVers(0x04.toByte()))
+//
+//        viewModelScope.launch(Dispatchers.Default) {
+//            try {
+//                val data = Hashtable<String, Any>().apply {
+//                    put("checkCardMode", checkCardMode)
+//                    put("currencyCode", "484") //484 para MX
+//                    put("emvOption", ContantPara.EmvOption.START) // START_WITH_FORCE_ONLINE
+//                    put("amount", amount)
+//                    put("cashbackAmount", "")
+//                    put("checkCardTimeout", "30") // Check Card timeout in seconds
+//                    put("transactionType", "00") // 00-goods, 01-cash, 09-cashback, 20-refund
+//                    put("isEnterAmtAfterReadRecord", false)
+//                    put("supportDRL", true) // support Visa DRL?
+//                    put("enableBeeper", true)
+//                }
+//                // Aquí llamas a tu API
+//                mKernelApi.startKernel(data)
+//            } catch (e: Exception) {
+//                e.printStackTrace()
+//            }
+//        }
+//    }
 }

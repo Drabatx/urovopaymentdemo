@@ -21,4 +21,8 @@
     <string name="example_icon">Generic Icon</string>
     <string name="accept">Aceptar</string>
 
+    <string name="checking_network">Checking Network</string>
+    <string name="sending_data">Sending Data</string>
+    <string name="being_returned">Receiving Data</string>
+
 </resources>

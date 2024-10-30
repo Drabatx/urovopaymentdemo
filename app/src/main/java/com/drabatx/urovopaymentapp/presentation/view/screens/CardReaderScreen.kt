@@ -59,8 +59,6 @@ fun CardReaderScreen(
     inpuDatas: String,
     viewModel: CardReaderViewModel
 ) {
-    val monto by remember { mutableStateOf("0.00") }
-    val noTarjeta by remember { mutableStateOf("") }
     val posInputData by viewModel.livePosInputDatas.observeAsState(inpuDatas.toPosInputDatas())
     val reasonsState by viewModel.reasonsEMV.observeAsState()
 
@@ -147,8 +145,7 @@ fun CardReaderScreen(
     }
     LaunchedEffect(Dispatchers.IO) {
         viewModel.initEmvListener(
-            posInputDatas = posInputData,
-            checkCardMode = ContantPara.CheckCardMode.INSERT_OR_TAP
+            posInputDatas = posInputData
         )
     }
 }

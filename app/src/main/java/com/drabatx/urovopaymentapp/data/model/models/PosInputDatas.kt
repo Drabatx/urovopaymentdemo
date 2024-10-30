@@ -1,6 +1,6 @@
 package com.drabatx.urovopaymentapp.data.model.pos2.models
 
-import com.drabatx.urovopaymentapp.data.model.pos2.db.TranslogModel
+import com.drabatx.urovopaymentapp.data.model.db.TranslogModel
 import com.google.gson.Gson
 import java.io.Serializable
 

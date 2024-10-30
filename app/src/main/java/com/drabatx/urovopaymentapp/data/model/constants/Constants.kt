@@ -1,4 +1,4 @@
-package com.drabatx.urovopaymentapp.data.model.pos2.Constants
+package com.drabatx.urovopaymentapp.data.model.pos2.constants
 
 object Constants {
     /** Interface  */

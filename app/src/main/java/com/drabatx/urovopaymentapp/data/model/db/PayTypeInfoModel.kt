@@ -1,4 +1,4 @@
-package com.drabatx.urovopaymentapp.data.model.pos2.db
+package com.drabatx.urovopaymentapp.data.model.db
 
 import android.content.ContentValues
 import android.database.Cursor

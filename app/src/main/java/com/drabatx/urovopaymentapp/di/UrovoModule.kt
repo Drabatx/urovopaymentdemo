@@ -1,19 +1,20 @@
 package com.drabatx.urovopaymentapp.di
 
 import android.content.Context
-import com.drabatx.urovopaymentapp.domain.repository.MyEmvListener
+import android.os.Environment
+import com.drabatx.urovopaymentapp.data.model.models.merchant.ConfigPrefsTool
+import com.drabatx.urovopaymentapp.data.model.models.merchant.ConfigUtils
+import com.drabatx.urovopaymentapp.data.model.models.merchant.MerchantParams
+import com.drabatx.urovopaymentapp.data.model.models.merchant.MerchantPrefsTool
+import com.drabatx.urovopaymentapp.data.model.models.merchant.SharedPrefsTool
 import com.urovo.i9000s.api.emv.EmvNfcKernelApi
-import com.urovo.sdk.beeper.BeeperImpl
-import com.urovo.sdk.insertcard.InsertCardHandlerImpl
-import com.urovo.sdk.led.LEDDriverImpl
-import com.urovo.sdk.magcard.MagCardReaderImpl
-import com.urovo.sdk.pinpad.PinPadProviderImpl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.io.File
 import javax.inject.Singleton
 
 @Module
@@ -33,38 +34,52 @@ object UrovoModule {
 
     @Provides
     @Singleton
-    fun provideIBeeper(): BeeperImpl = BeeperImpl.getInstance()
+    fun provideExternalApiDir(context: Context): File {
+        return File(Environment.getExternalStorageDirectory(), context.packageName)
+    }
 
     @Provides
     @Singleton
-    fun provideILed(): LEDDriverImpl = LEDDriverImpl.getInstance()
-
-
-    @Provides
-    @Singleton
-    fun provideMagCardReaderImpl(): MagCardReaderImpl = MagCardReaderImpl.getInstance()
+    fun provideSharedPrefsTool(context: Context, externalApiDir: File): SharedPrefsTool {
+        return SharedPrefsTool(context, externalApiDir)
+    }
 
     @Provides
     @Singleton
-    fun provideInsertCardHandlerImpl() = InsertCardHandlerImpl.getInstance()
+    fun provideMerchantPrefsTool(sharedPrefsTool: SharedPrefsTool, configUtils: ConfigUtils):MerchantPrefsTool {
+        return MerchantPrefsTool(sharedPrefsTool, configUtils)
+    }
 
     @Provides
     @Singleton
-    fun providePinPadProviderImpl() = PinPadProviderImpl.getInstance()
+    fun provideMerchantParams(merchantPrefsTool: MerchantPrefsTool): MerchantParams {
+        return MerchantParams(merchantPrefsTool)
+    }
 
+    @Provides
+    @Singleton
+    fun provideConfigPrefsTool(sharedPrefsTool: SharedPrefsTool): ConfigPrefsTool{
+        return ConfigPrefsTool(sharedPrefsTool)
+    }
+
+    @Provides
+    @Singleton
+    fun provideConfigUtils(configPrefsTool: ConfigPrefsTool): ConfigUtils {
+        return ConfigUtils(configPrefsTool)
+    }
 }
 
 @Module
 @InstallIn(ViewModelComponent::class)
 object CardReaderModule {
 
-    @Provides
-    fun provideMyEmvListener(
-        mKernelApi: EmvNfcKernelApi,
-        iBeeper: BeeperImpl,
-        iLed: LEDDriverImpl
-    ): MyEmvListener {
-        return MyEmvListener(mKernelApi, iBeeper, iLed)
-    }
+//    @Provides
+//    fun provideMyEmvListener(
+//        mKernelApi: EmvNfcKernelApi,
+//        iBeeper: BeeperImpl,
+//        iLed: LEDDriverImpl
+//    ): MyEmvListener {
+//        return MyEmvListener(mKernelApi, iBeeper, iLed)
+//    }
 
 }

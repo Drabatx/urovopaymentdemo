@@ -1,7 +1,7 @@
 package com.drabatx.urovopaymentapp.presentation.view.viewmodels
 
 import androidx.lifecycle.ViewModel
-import com.drabatx.urovopaymentapp.data.model.pos2.Constants.PosTransType
+import com.drabatx.urovopaymentapp.data.model.pos2.constants.PosTransType
 import com.drabatx.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow

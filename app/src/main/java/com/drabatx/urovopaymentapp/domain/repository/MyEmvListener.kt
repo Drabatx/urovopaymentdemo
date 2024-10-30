@@ -1,18 +1,25 @@
 package com.drabatx.urovopaymentapp.domain.repository
 
+import android.content.Context
 import android.device.SEManager
+import android.media.AudioManager
+import android.media.SoundPool
 import android.os.Bundle
 import android.os.IInputActionListener
 import android.os.RemoteException
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.drabatx.urovopaymentapp.R
+import com.drabatx.urovopaymentapp.data.model.StIso8583
+import com.drabatx.urovopaymentapp.data.model.pos2.constants.PosTransType
 import com.drabatx.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.drabatx.urovopaymentapp.domain.model.EmvReason
 import com.drabatx.urovopaymentapp.domain.model.EmvReasonsModel
 import com.drabatx.urovopaymentapp.utils.UrovoResult
 import com.lib.card.constant.CardTypeConstant
 import com.urovo.i9000s.api.emv.ContantPara
+import com.urovo.i9000s.api.emv.ContantPara.CheckCardMode
 import com.urovo.i9000s.api.emv.ContantPara.CheckCardResult
 import com.urovo.i9000s.api.emv.ContantPara.IssuerScriptResult
 import com.urovo.i9000s.api.emv.ContantPara.NfcErrMessageID
@@ -24,7 +31,12 @@ import com.urovo.i9000s.api.emv.EmvListener
 import com.urovo.i9000s.api.emv.EmvNfcKernelApi
 import com.urovo.i9000s.api.emv.Funs
 import com.urovo.sdk.beeper.BeeperImpl
+import com.urovo.sdk.insertcard.InsertCardHandlerImpl
 import com.urovo.sdk.led.LEDDriverImpl
+import com.urovo.sdk.magcard.MagCardReaderImpl
+import com.urovo.sdk.pinpad.PinPadProviderImpl
+import com.urovo.sdk.pinpad.listener.PinInputListener
+import java.text.DecimalFormat
 import java.util.Hashtable
 import java.util.Locale
 import javax.inject.Inject
@@ -32,9 +44,8 @@ import javax.inject.Inject
 
 class MyEmvListener @Inject constructor(
     private val mKernelApi: EmvNfcKernelApi,
-    private val iBeeper: BeeperImpl,
-    private val iLed: LEDDriverImpl
-) : EmvListener {
+    private val context: Context
+) : EmvListener, PosEveCallBack {
     private val TAG = "MyEmvListener"
 
     private val _isRequestOnlineProcess = MutableLiveData(false)
@@ -50,22 +61,79 @@ class MyEmvListener @Inject constructor(
     val posInputDatas: LiveData<PosInputDatas> get() = _posInputDatas
 
 
+    private var transType = 7
+    private var payCardType = 1 //0:mag，1：ic/rfid
+
+    private val pinpadlistener = AdminInputListener()
+
+    val keyId: Int = 10
+    var mSTIOS8583: StIso8583? = null
+    lateinit var iMagCardReader: MagCardReaderImpl
+    lateinit var iInsertCardReader: InsertCardHandlerImpl
+    lateinit var pinpad: PinPadProviderImpl
+    lateinit var iBeeper: BeeperImpl
+    lateinit var iLed: LEDDriverImpl
+    lateinit var soundPool: SoundPool
+    var errorsoundid = 0
+    var scansoundid = 0
+
+    fun initKernel(posData: PosInputDatas) {
+        _posInputDatas.postValue(posData)
+        mKernelApi.setListener(this)
+        mKernelApi.setContext(context)
+        mKernelApi.LogOutEnable(1)
+        soundPool = SoundPool(1, AudioManager.STREAM_NOTIFICATION, 100)
+        errorsoundid = soundPool.load(context, R.raw.error, 1)
+        scansoundid = soundPool.load(context, R.raw.success, 1)
+        transType =  PosTransType.getEMVTransType(posInputDatas.value?.iTransNo?:7)
+        payCardType = 1 //0:mag，1：ic/rfid
+        iMagCardReader = MagCardReaderImpl.getInstance()
+        iInsertCardReader = InsertCardHandlerImpl.getInstance()
+        pinpad = PinPadProviderImpl.getInstance()
+        iBeeper = BeeperImpl.getInstance()
+        iLed = LEDDriverImpl.getInstance()
+        StartKernel(ContantPara.CheckCardMode.INSERT_OR_TAP)
+    }
+
+    fun StartKernel(checkCardMode: CheckCardMode) {
+        Thread {
+            try {
+                Log.i(TAG, "++++++++++++++ run: startKernel")
+                val data = Hashtable<String, Any>()
+                data["checkCardMode"] = checkCardMode //
+                data["currencyCode"] = "682" //682
+                data["emvOption"] = ContantPara.EmvOption.START // START_WITH_FORCE_ONLINE
+                data["amount"] = posInputDatas.value?.amt ?: "0"
+                data["cashbackAmount"] = "0"
+                data["checkCardTimeout"] = "30" // Check Card time out .Second
+                data["transactionType"] = "00" //00-goods 01-cash 09-cashback 20-refund
+                data["isEnterAmtAfterReadRecord"] = false
+                data["supportDRL"] = true // support Visa DRL?
+                mKernelApi.startKernel(data)
+            } catch (e: java.lang.Exception) {
+                e.printStackTrace()
+            }
+        }.start()
+    }
+
+
     fun setPosData(posData: PosInputDatas) {
         _posInputDatas.postValue(posData)
     }
 
+    override fun onEventComplete(stIOS8583: StIso8583?) {
+        Log.i(TAG, "onEventComplete: ")
+    }
+
     override fun onRequestSetAmount() {
         Log.i(TAG, "onRequestSetAmount: ${posInputDatas.value?.amt}")
-        Log.i(TAG, "MainActivity  onRequestSetAmount")
     }
 
     override fun onReturnCheckCardResult(
         checkCardResult: CheckCardResult,
         hashtable: Hashtable<String, String>
     ) {
-
         Log.i(TAG, "onReturnCheckCardResult checkCardResult =$checkCardResult")
-        Log.d(TAG, hashtable.toString())
         if (checkCardResult == CheckCardResult.MSR) {
             val stripStr = hashtable["StripInfo"]!!.uppercase(Locale.getDefault())
             val cardNo = hashtable["CardNo"]
@@ -80,6 +148,7 @@ class MyEmvListener @Inject constructor(
             } else {
                 String(Funs.StrToHexByte(hstr1))
             }
+
             val track2 = if (hstr2 == "") {
                 ""
             } else {
@@ -191,7 +260,8 @@ class MyEmvListener @Inject constructor(
             _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
             if (pinEntrySource == PinEntrySource.KEYPAD) {
                 _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
-                _reasonsEMV.postValue(EmvReasonsModel("Request Pin", EmvReason.MESSAGE_REQUEST_PIN))
+//                _reasonsEMV.postValue(EmvReasonsModel("Request Pin", EmvReason.MESSAGE_REQUEST_PIN))
+                emv_proc_onlinePin()
             }
         }
     }
@@ -227,11 +297,11 @@ class MyEmvListener @Inject constructor(
     }
 
     override fun onRequestFinalConfirm() {
-        Log.i(TAG, "onRequestFinalConfirm: ")
         mKernelApi.sendFinalConfirmResult(true)
     }
 
-    override fun onRequestOnlineProcess(cardTlvData: String, dataKsn: String) {
+    override fun onRequestOnlineProcess(cardTlvData: String, dataKsn: String?) {
+        //send s to sever
         _posInputDatas.postValue(
             _posInputDatas.value?.update(
                 pan = GetCardNo(),
@@ -242,9 +312,7 @@ class MyEmvListener @Inject constructor(
             )
         )
         val TVR = mKernelApi.getValByTag(0x95)
-        Log.i(TAG, "  onRequestOnlineProcess TVR:$TVR")
         val PSN = mKernelApi.getValByTag(0x5F34)
-        Log.i(TAG, "MainActivity  onRequestOnlineProcess PSN:$PSN")
 
         _isRequestOnlineProcess.postValue(true)
         _reasonsEMV.postValue(
@@ -252,6 +320,12 @@ class MyEmvListener @Inject constructor(
                 .setMessage("onConfirm PIN")
                 .build()
         )
+        val responseData =
+            "910AFE82F70555A9F0473030726B9F180455354370861D8424000218AD9B9E46547AB571B47EB40866DE04793338F24228345D8B860E04DA9F53090715466A4E26CE5589861304DA9F540E00000000000166863111AB1A795C860E04DA9F580903BB4C60AADCDF34ED860E04DA9F590905BC0BFDA4A0DD3EF28A023030 "
+
+        mKernelApi.sendOnlineProcessResult(true, responseData)
+
+        //startTrading()
     }
 
 
@@ -281,6 +355,8 @@ class MyEmvListener @Inject constructor(
         Log.i(TAG, "  onReturnTransactionResult AC:$AC")
 
         if (transactionResult == TransactionResult.ONLINE_APPROVAL || transactionResult == TransactionResult.OFFLINE_APPROVAL) {
+            soundPool.play(R.raw.success, 0.8f, 0.8f, 1, 0, 1f)
+
             mKernelApi.abortKernel()
             //TODO pago aceptado
             _result.postValue(UrovoResult.Success(posInputDatas.value!!))
@@ -325,11 +401,11 @@ class MyEmvListener @Inject constructor(
         bundle: Bundle
     ) {
         if (pinEntrySource == PinEntrySource.KEYPAD) { //use in os 8.0
+            //pinEntryType 0-offline plain pin ,1-offline encrypt pin
             val pinTryTimes: Int = mKernelApi.getOfflinePinTryTimes()
             bundle.putInt("PinTryTimes", pinTryTimes)
             bundle.putBoolean("isFirstTime", true)
             proc_offlinePin(pinEntryType, pinTryTimes == 1, bundle)
-        } else {
         }
     }
 
@@ -374,7 +450,7 @@ class MyEmvListener @Inject constructor(
             EmvReasonsModel.Builder()
                 .setReason(EmvReason.REQUEST_ONLINEPIN).setMessage("onConfirm PIN").build()
         )
-        //TODO emv_proc_onlinePin()
+        emv_proc_onlinePin()
     }
 
 
@@ -445,6 +521,17 @@ class MyEmvListener @Inject constructor(
         )
     }
 
+    private fun getAmt(field54: String): String {
+        var field54 = field54
+        try {
+            field54 = field54.substring(field54.length - 12)
+            val double1 = field54.toDouble() / 100
+            field54 = DecimalFormat("0.00").format(double1)
+        } catch (e: java.lang.Exception) {
+            e.printStackTrace()
+        }
+        return field54
+    }
 
     private fun GetCardNo(): String {
         var cardno = EmvNfcKernelApi.getInstance().getValByTag(0x5A)
@@ -457,21 +544,11 @@ class MyEmvListener @Inject constructor(
         if ((cardno[cardno.length - 1] == 'f') || (cardno[cardno.length - 1] == 'F')
             || (cardno[cardno.length - 1] == 'd') || (cardno[cardno.length - 1] == 'D')
         ) cardno = cardno.substring(0, cardno.length - 1)
-        Log.i(TAG, "GetCardNo: $cardno")
         return cardno
     }
 
     fun proc_offlinePin(pinEntryType: Int, isLastPinTry: Boolean, bundle: Bundle): Int {
         var iret = 0
-
-        // TODO Auto-generated method stub
-        val emvBundle = bundle
-
-
-        Log.d(
-            "applog",
-            "proc_offlinePin pinEntryType = $pinEntryType isLastPinTry=$isLastPinTry"
-        )
 
         val paramVar = Bundle()
         paramVar.putInt("inputType", 3) //Offline PlainPin
@@ -482,25 +559,33 @@ class MyEmvListener @Inject constructor(
         paramVar.putBoolean("FullScreen", true)
         paramVar.putLong("timeOutMS", 60000)
         paramVar.putString("supportPinLen", "0,4,5,6,7,8,9,10,11,12")
-        paramVar.putString("title", "Security Keyboard")
+        paramVar.putString("title", "Teclado de seguridad")
         paramVar.putBoolean("randomKeyboard", false)
+
         val pinTryTimes = bundle.getInt("PinTryTimes")
         val isFirst = bundle.getBoolean("isFirstTime", false)
-        Log.d("applog", "PinTryTimes:$pinTryTimes")
+
+        Log.d(TAG, "PinTryTimes:$pinTryTimes")
         if (isLastPinTry) {
-            if (isFirst) paramVar.putString("message", "Please input PIN \nLast PIN Try")
-            else paramVar.putString("message", "Please input PIN \nWrong PIN \nLast Pin Try")
+            if (isFirst) paramVar.putString(
+                "message",
+                "Por favor, ingrese el PIN \nÚltimo intento de PIN"
+            )
+            else paramVar.putString(
+                "message",
+                "Por favor, ingrese el PIN \nPIN incorrecto \nÚltimo intento de PIN"
+            )
         } else {
-            if (isFirst) paramVar.putString("message", "Please input PIN \n")
+            if (isFirst) paramVar.putString("message", "Por favor, ingrese el PIN \n")
             else {
                 paramVar.putString(
                     "message",
-                    "Please input PIN \nWrong PIN \nPin Try Times:$pinTryTimes"
+                    "Por favor, ingrese el PIN \nPIN incorrecto \nIntentos de PIN:$pinTryTimes"
                 )
             }
         }
 
-
+        val emvBundle = bundle
         if (pinEntryType == 1) {
             paramVar.putInt("inputType", 4) //Offline CipherPin
 
@@ -512,16 +597,10 @@ class MyEmvListener @Inject constructor(
             Log.d("applog", "ModuleLen = " + publen!![0] + ": " + Funs.bytesToHexString(pub))
             Log.d("applog", "ExponentLen = " + explen!![0] + ": " + Funs.bytesToHexString(exp))
 
-
-            val ModuleLen = publen!![0]
-            val ExponentLen = explen!![0]
+            val ModuleLen = publen[0]
+            val ExponentLen = explen[0]
             val Module = ByteArray(ModuleLen)
             val Exponent = ByteArray(ExponentLen)
-
-            if (ModuleLen == 0 || ExponentLen == 0) {
-                mKernelApi.sendOfflinePINVerifyResult(-198)
-                return 0
-            }
 
             System.arraycopy(pub, 0, Module, 0, ModuleLen)
             System.arraycopy(exp, 0, Exponent, 0, ExponentLen)
@@ -532,38 +611,14 @@ class MyEmvListener @Inject constructor(
             paramVar.putString("Exponent", Funs.bytesToHexString(Exponent)) //Exponent
         }
 
-
         Log.d("applog", "proc_offlinePin getPinBlockEx start")
-
-        paramVar.putInt("PinTryMode", 1)
-        paramVar.putString("ErrorMessage", "Incorrect PIN, # More Retries")
-        paramVar.putString("ErrorMessageLast", "Incorrect PIN, Last Chance")
-
 
         val se = SEManager()
         iret = se.getPinBlockEx(paramVar, object : IInputActionListener.Stub() {
+            @Throws(RemoteException::class)
             override fun onInputChanged(type: Int, result: Int, bundle: Bundle) {
                 val resultBundle = bundle
                 try {
-                    //    7101~7115 The number of remaining PIN tries(7101 PIN BLOCKED   7102 the last one chance  7103 two chances ....)
-                    //		7006 PIN length error
-                    //		7010 防穷举出错
-                    //		7016 Wrong PIN
-                    //		7071 The return code is wrong
-                    //		7072 IC command failed
-                    //		7073 Card data error
-                    //		7074 PIN BLOCKED
-                    //		7075 Encryption error
-                    //
-                    //The offline PIN verification result is sent to the kernel
-                    //   use api EmvApi.sendOfflinePINVerifyResult();
-                    //		    (-198)     //Return code error
-                    //		    (-202)     //IC command failed
-                    //		    (-192)     //PIN BLOCKED
-                    //          (-199)     //user cancel or Pinpad timeout
-                    //		    (1)        //bypass
-                    //		    (0)        //success
-
                     Log.i(
                         "applog",
                         "proc_offlinePin：getPinBlockEx===onInputChanged：type=$type，result=$result"
@@ -671,6 +726,66 @@ class MyEmvListener @Inject constructor(
         })
         if (iret == -3 || iret == -4) mKernelApi.sendOfflinePINVerifyResult(-198)
         return iret
+    }
+
+    fun emv_proc_onlinePin() {
+        Log.i("applog", "emv_proc_onlinePin")
+        val param = Bundle()
+//        if (isDUKPT) param.putInt("PINKeyNo", 3)
+//        else
+        param.putInt("PINKeyNo", keyId)
+        val cardno: String = GetCardNo()
+        Log.i("applog", "emv_proc_onlinePin cardno $cardno")
+        param.putString("cardNo", cardno)
+        param.putBoolean("sound", true)
+        param.putBoolean("onlinePin", true)
+        param.putBoolean("FullScreen", true)
+        param.putLong("timeOutMS", (60 * 1000).toLong())
+        param.putString("supportPinLen", "0,4,5,6,7,8,9,10,11,12") // "4,4");   //
+        param.putString("title", "Security Keyboard")
+        param.putString("message", "Please Enter PIN" + "\n") // use your real amount
+
+
+        Log.i("applog", "getPinBlockEx ")
+        _reasonsEMV.postValue(
+            EmvReasonsModel.Builder()
+                .setReason(EmvReason.MESSAGE_REQUEST_PIN)
+                .setMessage("pin_request").build()
+        )
+    }
+
+    inner class AdminInputListener : PinInputListener {
+        override fun onInput(len: Int, key: Int) {
+        }
+
+        override fun onConfirm(pinBlock: ByteArray, isNonePin: Boolean) {
+            if (isNonePin) {
+                mKernelApi.bypassPinEntry() //bypass
+            } else {
+                _posInputDatas.postValue(
+                    _posInputDatas.value?.update(
+                        szPINData = String(pinBlock)
+                    )
+                )
+                mKernelApi.sendPinEntry()
+            }
+        }
+
+        override fun onConfirm_dukpt(PinBlock: ByteArray, ksn: ByteArray) {
+            _posInputDatas.postValue(_posInputDatas.value?.update(szPINData = String(PinBlock)))
+        }
+
+        override fun onCancel() {
+            //Cancel
+        }
+
+        override fun onTimeOut() {
+            //Timeout
+        }
+
+        override fun onError(i: Int) {
+            //onError
+        }
     }
 
 }
