@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.drabatx.urovopaymentapp"
+    namespace = "com.test.urovopaymentapp"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.drabatx.urovopaymentapp"
+        applicationId = "com.test.urovopaymentapp"
         minSdk = 24
         targetSdk = 34
         versionCode = 1
