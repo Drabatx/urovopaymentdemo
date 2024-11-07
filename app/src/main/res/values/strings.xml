@@ -24,5 +24,36 @@
     <string name="checking_network">Checking Network</string>
     <string name="sending_data">Sending Data</string>
     <string name="being_returned">Receiving Data</string>
+    <string name="error_title">Ocurrio un error</string>
+    <string name="error_generic">Ocurrio un error al procesar su pago. Intentelo mas tarde.</string>
+
+
+    <string name="merchant_name">Nombre del Comerciante</string>
+    <string name="merchant_id">ID del Comerciante</string>
+    <string name="terminal_id">ID de la Terminal</string>
+    <string name="card_no">Número de Tarjeta</string>
+    <string name="trace_no">Número de Rastreo</string>
+    <string name="pay_type">Tipo de Pago</string>
+    <string name="auth_code">Código de Autorización</string>
+    <string name="rrn_code">Código de Referencia</string>
+    <string name="date_time">Fecha y Hora</string>
+    <string name="amount">Monto</string>
+    <string name="confirm">Confirmar</string>
+
+    <string name="error_need_fallback">¡NECESITA REEMPLAZO! ¡Por favor toque o deslice la tarjeta!</string>
+    <string name="error_bad_swipe">¡DESLIZADO ERRÓNEO! ¡Por favor toque o deslice la tarjeta!</string>
+    <string name="error_not_icc">¡NO ES ICC, retire e inserte la tarjeta nuevamente!</string>
+    <string name="error_timeout">¡Tiempo de espera agotado para la tarjeta!</string>
+    <string name="error_cancel_operation">¡Operación cancelada!</string>
+    <string name="error_device_busy">¡Dispositivo de tarjeta ocupado!</string>
+    <string name="error_use_icc_card">¡Tarjeta de chip! ¡Por favor use la interfaz de contacto, inserte la tarjeta!</string>
+    <string name="error_multi_card">¡Tarjetas múltiples! ¡Por favor inserte solo una tarjeta!</string>
+
+    <string name="use_mag_stripe">Por favor, pase la tarjeta por la banda magnética</string>
+    <string name="approved_please_sign">Aprobado. Por favor, firme</string>
+    <string name="on_confirm_pin">Confirmando PIN</string>
+    <string name="pin_request">Por favor, ingrese su PIN</string>
+    <string name="atention">Atención</string>
+    <string name="processing_payment">Se está procesando su pago</string>
 
 </resources>

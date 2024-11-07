@@ -12,7 +12,9 @@ enum class EmvReason {
     MESSAGE_PAN,
     MESSAGE_CANCEL,
     MESSAGE_REQUEST_PIN,
-    MESSAGE_PRINT_FINISH
+    MESSAGE_PRINT_FINISH,
+    LOADING_DATA,
+    INITIAL_STATE
 }
 data class EmvReasonsModel(val message: String, val reason: EmvReason) {
 

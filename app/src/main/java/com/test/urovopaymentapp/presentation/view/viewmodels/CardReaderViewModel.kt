@@ -1,6 +1,8 @@
 package com.test.urovopaymentapp.presentation.view.viewmodels
 
 import android.content.Context
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.test.urovopaymentapp.domain.repository.MyEmvListener
@@ -18,41 +20,16 @@ class CardReaderViewModel @Inject constructor(
 
     val livePosInputDatas = myEmvListener.posInputDatas
 
-//    val isRequestOnlineProcess = myEmvListener.isRequestOnlineProcess
-//    val result = myEmvListener.result
-    val reasonsEMV = myEmvListener.reasonsEMV
-
+    val resultEMV = myEmvListener.result
 
     fun initEmvListener(posInputDatas: PosInputDatas) {
         myEmvListener.initKernel(posInputDatas)
     }
 
-//    private fun startKernelCoroutine(checkCardMode: ContantPara.CheckCardMode, amount:String) {
-//        Log.d(TAG, "SDK version:" + mKernelApi.emVjarVers)
-//        Log.d(TAG, "EMV lib version:" + mKernelApi.getEMVLibVers(ContantPara.CardSlot.ICC))
-//        Log.d(TAG, "PayPass lib version:" + mKernelApi.getNFCLibVers(0x02.toByte()))
-//        Log.d(TAG, "PayWave lib version:" + mKernelApi.getNFCLibVers(0x03.toByte()))
-//        Log.d(TAG, "Amex lib version:" + mKernelApi.getNFCLibVers(0x04.toByte()))
-//
-//        viewModelScope.launch(Dispatchers.Default) {
-//            try {
-//                val data = Hashtable<String, Any>().apply {
-//                    put("checkCardMode", checkCardMode)
-//                    put("currencyCode", "484") //484 para MX
-//                    put("emvOption", ContantPara.EmvOption.START) // START_WITH_FORCE_ONLINE
-//                    put("amount", amount)
-//                    put("cashbackAmount", "")
-//                    put("checkCardTimeout", "30") // Check Card timeout in seconds
-//                    put("transactionType", "00") // 00-goods, 01-cash, 09-cashback, 20-refund
-//                    put("isEnterAmtAfterReadRecord", false)
-//                    put("supportDRL", true) // support Visa DRL?
-//                    put("enableBeeper", true)
-//                }
-//                // Aquí llamas a tu API
-//                mKernelApi.startKernel(data)
-//            } catch (e: Exception) {
-//                e.printStackTrace()
-//            }
-//        }
-//    }
+    private val _hasNavigated = MutableLiveData(false)
+    val hasNavigated: LiveData<Boolean> get() = _hasNavigated
+
+    fun setHasNavigated() {
+        _hasNavigated.value = true
+    }
 }

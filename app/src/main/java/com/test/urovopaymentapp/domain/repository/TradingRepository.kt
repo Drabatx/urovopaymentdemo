@@ -1,12 +1,10 @@
 package com.test.urovopaymentapp.domain.repository
 
-import android.content.Context
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
-import javax.inject.Inject
+import com.test.urovopaymentapp.domain.model.TradingCardResponse
+import com.test.urovopaymentapp.utils.UrovoResult
+import kotlinx.coroutines.flow.Flow
 
-class TradingRepository @Inject constructor(private val context: Context) {
-
-    fun startSale(posInputDatas: PosInputDatas){
-
-    }
+interface TradingRepository {
+    suspend fun startSale(posInputDatas: PosInputDatas): Flow<UrovoResult<TradingCardResponse>>
 }

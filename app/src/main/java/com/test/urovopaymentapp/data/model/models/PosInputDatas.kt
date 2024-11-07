@@ -1,7 +1,8 @@
 package com.test.urovopaymentapp.data.model.pos2.models
 
-import com.test.urovopaymentapp.data.model.db.TranslogModel
 import com.google.gson.Gson
+import com.test.urovopaymentapp.data.model.StIso8583
+import com.test.urovopaymentapp.data.model.db.TranslogModel
 import java.io.Serializable
 
 /**
@@ -263,7 +264,9 @@ class PosInputDatas private constructor(
     /**
      * Mapa para almacenar campos personalizados.
      */
-    var map: HashMap<String, Any>? = null
+    var map: HashMap<String, Any>? = null,
+
+    var stIso8583: StIso8583? = null
 ) : Serializable {
 
     fun update(
@@ -315,7 +318,8 @@ class PosInputDatas private constructor(
         merID: String? = this.merID,
         orderTime: String? = this.orderTime,
         orderNumber: String? = this.orderNumber,
-        map: HashMap<String, Any>? = this.map
+        map: HashMap<String, Any>? = this.map,
+        stIso8583: StIso8583? = this.stIso8583
     ): PosInputDatas {
         return PosInputDatas(
             userNo = userNo ?: this.userNo,
@@ -366,7 +370,8 @@ class PosInputDatas private constructor(
             merID = merID ?: this.merID,
             orderTime = orderTime ?: this.orderTime,
             orderNumber = orderNumber ?: this.orderNumber,
-            map = map ?: this.map
+            map = map ?: this.map,
+            stIso8583 = stIso8583 ?: this.stIso8583
         )
     }
 
@@ -422,6 +427,7 @@ class PosInputDatas private constructor(
         private var orderTime: String? = null
         private var orderNumber: String? = null
         private var map: HashMap<String, Any>? = null
+        private var stIso8583: StIso8583? = null
 
         fun setUserNo(userNo: String) = apply { this.userNo = userNo }
         fun setNodeID(nodeID: String) = apply { this.nodeID = nodeID }
@@ -446,7 +452,9 @@ class PosInputDatas private constructor(
         fun setIndexId(indexId: Int) = apply { this.indexId = indexId }
         fun setTime(time: String?) = apply { this.time = time }
         fun setQianMing(qianMing: String?) = apply { this.qianMing = qianMing }
-        fun setTranslogModel(translogModel: TranslogModel?) = apply { this.translogModel = translogModel }
+        fun setTranslogModel(translogModel: TranslogModel?) =
+            apply { this.translogModel = translogModel }
+
         fun setYhTransNo(yhTransNo: String?) = apply { this.yhTransNo = yhTransNo }
         fun setOilMass(oilMass: String?) = apply { this.oilMass = oilMass }
         fun setMileage(mileage: String?) = apply { this.mileage = mileage }
@@ -474,7 +482,7 @@ class PosInputDatas private constructor(
         fun setOrderTime(orderTime: String?) = apply { this.orderTime = orderTime }
         fun setOrderNumber(orderNumber: String?) = apply { this.orderNumber = orderNumber }
         fun setMap(map: HashMap<String, Any>?) = apply { this.map = map }
-
+        fun setStIso8583(stIso8583: StIso8583?) = apply { this.stIso8583 = stIso8583 }
         fun build() = PosInputDatas(
             userNo,
             nodeID,
@@ -526,7 +534,7 @@ class PosInputDatas private constructor(
             merID,
             orderTime,
             orderNumber,
-            map
+            map, stIso8583
         )
     }
 }

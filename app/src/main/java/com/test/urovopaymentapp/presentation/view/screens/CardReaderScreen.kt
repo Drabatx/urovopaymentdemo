@@ -39,12 +39,15 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.test.urovopaymentapp.R
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
+import com.test.urovopaymentapp.data.model.pos2.models.toJson
 import com.test.urovopaymentapp.data.model.pos2.models.toPosInputDatas
 import com.test.urovopaymentapp.domain.model.EmvReason
+import com.test.urovopaymentapp.presentation.navigation.Screen
 import com.test.urovopaymentapp.presentation.view.dialogs.LoadingDialog
 import com.test.urovopaymentapp.presentation.view.dialogs.MessageDialog
 import com.test.urovopaymentapp.presentation.view.viewmodels.CardReaderViewModel
 import com.test.urovopaymentapp.presentation.view.widgets.MyTopBar
+import com.test.urovopaymentapp.utils.UrovoResult
 import com.test.urovopaymentapp.utils.formatCardNumber
 import kotlinx.coroutines.Dispatchers
 
@@ -56,42 +59,27 @@ fun CardReaderScreen(
     viewModel: CardReaderViewModel
 ) {
     val posInputData by viewModel.livePosInputDatas.observeAsState(inpuDatas.toPosInputDatas())
-    val reasonsState by viewModel.reasonsEMV.observeAsState()
+    val resultPayment by viewModel.resultEMV.observeAsState()
 
     Scaffold(topBar = { MyTopBar("Leer Tarjeta") }) { peddingValues ->
-        reasonsState?.let {
-            Log.i(TAG, "CardReaderScreen: ${it.reason}")
-            when (it.reason) {
-                EmvReason.MESSAGE_CARD_MESSAGE -> {
-                    LoadingDialog(isLoading = true)
-                }
-                EmvReason.MESSAGE_REQUEST_PIN -> {
-                    MessageDialog(
-                        title = it.reason.name,
-                        text = it.message,
-                        showDialog = true,
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Filled.Notifications,
-                                contentDescription = "Error Icon",
-                                tint = Color.Red, // Cambia el color a rojo
-                                modifier = Modifier.size(24.dp) // Tamaño del icono
-                            )
-                        },
-                        primaryButtonText = stringResource(
-                            R.string.accept
-                        ),
-                        onConfirm = {
+        resultPayment?.let {
+            Log.i(TAG, "CardReaderScreen: ")
+            when(it){
+                is UrovoResult.Success->{
+                    if(viewModel.hasNavigated.value == false){
+                        Log.i(TAG, "CardReaderScreen: onResult")
+                        navController.navigate(Screen.ResultTransacction.createRoute(it.data.toJson())){
+                            popUpTo(Screen.Home.route)
+                            launchSingleTop = true
+                            viewModel.setHasNavigated()
                         }
-                    )
+                    }
                 }
-                EmvReason.MESSAGE_PAN -> {
 
-                }
-                EmvReason.MESSAGE_ERROR, EmvReason.MESSAGE_TIMEOUT -> {
+                is UrovoResult.Error -> {
                     MessageDialog(
-                        title = it.reason.name,
-                        text = it.message,
+                        title = stringResource(id = R.string.error_title),
+                        text = it.exception.message?: stringResource(id = R.string.error_generic),
                         showDialog = true,
                         icon = {
                             Icon(
@@ -109,10 +97,9 @@ fun CardReaderScreen(
                         }
                     )
                 }
-
-                EmvReason.MESSAGE_MSR -> {
+                is UrovoResult.Message -> {
                     MessageDialog(
-                        title = it.reason.name,
+                        title = stringResource(id = R.string.atention),
                         text = it.message,
                         icon = {
                             Icon(
@@ -130,14 +117,15 @@ fun CardReaderScreen(
                         onConfirm = {
                             navController.popBackStack()
                         }
-                    )
-                }
-
-                else -> {
+                    )                }
+                UrovoResult.Initial -> {}
+                UrovoResult.Loading -> {
+                    LoadingDialog(isLoading = true, message = stringResource(id = R.string.processing_payment))
                 }
             }
         }
         CardReaderBody(peddingValues, posInputData)
+
     }
     LaunchedEffect(Dispatchers.IO) {
         viewModel.initEmvListener(
@@ -200,7 +188,6 @@ private fun CardReaderBody(
                 .fillMaxSize(),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "Hola")
             InsertCardComponent(modifier = Modifier.fillMaxSize())
         }
     }

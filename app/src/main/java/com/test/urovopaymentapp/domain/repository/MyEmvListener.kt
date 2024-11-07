@@ -10,14 +10,13 @@ import android.os.RemoteException
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.lib.card.constant.CardTypeConstant
 import com.test.urovopaymentapp.R
 import com.test.urovopaymentapp.data.model.StIso8583
 import com.test.urovopaymentapp.data.model.pos2.constants.PosTransType
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.test.urovopaymentapp.domain.model.EmvReason
-import com.test.urovopaymentapp.domain.model.EmvReasonsModel
 import com.test.urovopaymentapp.utils.UrovoResult
-import com.lib.card.constant.CardTypeConstant
 import com.urovo.i9000s.api.emv.ContantPara
 import com.urovo.i9000s.api.emv.ContantPara.CheckCardMode
 import com.urovo.i9000s.api.emv.ContantPara.CheckCardResult
@@ -36,6 +35,7 @@ import com.urovo.sdk.led.LEDDriverImpl
 import com.urovo.sdk.magcard.MagCardReaderImpl
 import com.urovo.sdk.pinpad.PinPadProviderImpl
 import com.urovo.sdk.pinpad.listener.PinInputListener
+import kotlinx.coroutines.runBlocking
 import java.text.DecimalFormat
 import java.util.Hashtable
 import java.util.Locale
@@ -44,7 +44,8 @@ import javax.inject.Inject
 
 class MyEmvListener @Inject constructor(
     private val mKernelApi: EmvNfcKernelApi,
-    private val context: Context
+    private val context: Context,
+    private val tradingRepository: TradingRepositoryImpl
 ) : EmvListener, PosEveCallBack {
     private val TAG = "MyEmvListener"
 
@@ -54,12 +55,11 @@ class MyEmvListener @Inject constructor(
     private val _result = MutableLiveData<UrovoResult<PosInputDatas>>(UrovoResult.Initial)
     val result: LiveData<UrovoResult<PosInputDatas>> get() = _result
 
-    private val _reasonsEMV = MutableLiveData<EmvReasonsModel>()
-    val reasonsEMV: LiveData<EmvReasonsModel> get() = _reasonsEMV
+//    private val _reasonsEMV = MutableLiveData<EmvReasonsModel>()
+//    val reasonsEMV: LiveData<EmvReasonsModel> get() = _reasonsEMV
 
     private val _posInputDatas: MutableLiveData<PosInputDatas> = MutableLiveData()
     val posInputDatas: LiveData<PosInputDatas> get() = _posInputDatas
-
 
     private var transType = 7
     private var payCardType = 1 //0:mag，1：ic/rfid
@@ -85,13 +85,15 @@ class MyEmvListener @Inject constructor(
         soundPool = SoundPool(1, AudioManager.STREAM_NOTIFICATION, 100)
         errorsoundid = soundPool.load(context, R.raw.error, 1)
         scansoundid = soundPool.load(context, R.raw.success, 1)
-        transType =  PosTransType.getEMVTransType(posInputDatas.value?.iTransNo?:7)
+        transType = PosTransType.getEMVTransType(posInputDatas.value?.iTransNo ?: 7)
+
         payCardType = 1 //0:mag，1：ic/rfid
         iMagCardReader = MagCardReaderImpl.getInstance()
         iInsertCardReader = InsertCardHandlerImpl.getInstance()
         pinpad = PinPadProviderImpl.getInstance()
         iBeeper = BeeperImpl.getInstance()
         iLed = LEDDriverImpl.getInstance()
+
         StartKernel(ContantPara.CheckCardMode.INSERT_OR_TAP)
     }
 
@@ -116,6 +118,34 @@ class MyEmvListener @Inject constructor(
         }.start()
     }
 
+    fun processPayment(tlvData: String) {
+        runBlocking {
+            posInputDatas.value?.let {
+                tradingRepository.startSale(it).collect { result ->
+                    when (result) {
+                        is UrovoResult.Success -> {
+                            val responseData =
+                                "8A02303091081AD4D51400820000710F860D842400000817C217D34162474C910A1397ECEFC7A605110012"
+                            mSTIOS8583 = StIso8583()
+                            mKernelApi.sendOnlineProcessResult(true, responseData)
+                        }
+
+                        is UrovoResult.Error -> {
+                            mKernelApi.sendOnlineProcessResult(false, tlvData)
+                        }
+
+                        is UrovoResult.Loading -> {
+                            _result.postValue(UrovoResult.Loading)
+                        }
+
+                        else -> {
+
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     fun setPosData(posData: PosInputDatas) {
         _posInputDatas.postValue(posData)
@@ -175,60 +205,39 @@ class MyEmvListener @Inject constructor(
             }
             _posInputDatas.postValue(_posInputDatas.value?.update(swipedMode = CardTypeConstant.MSR))
 
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_MSR)
-                    .setMessage(cardNo ?: "").build()
-            )
+            _result.postValue(UrovoResult.Error(Throwable(EmvReason.MESSAGE_MSR.name)))
+
         } else if (checkCardResult == CheckCardResult.NEED_FALLBACK) {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_ERROR)
-                    .setMessage("NEED_FALLBACK ! Please Tap or Swipe Card!").build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(context.getString(R.string.error_need_fallback)))
             )
         } else if (checkCardResult == CheckCardResult.BAD_SWIPE) {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_ERROR)
-                    .setMessage("BAD_SWIPE ! Please Tap or Swipe Card!").build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(context.getString(R.string.error_bad_swipe)))
             )
         } else if (checkCardResult == CheckCardResult.NOT_ICC) {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_ERROR)
-                    .setMessage("NOT_ICC, Remove and Insert Card Again!").build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(context.getString(R.string.error_not_icc)))
             )
         } else if (checkCardResult == CheckCardResult.TIMEOUT) {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_TIMEOUT)
-                    .setMessage("Check Card Time Out!").build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(context.getString(R.string.error_timeout)))
             )
         } else if (checkCardResult == CheckCardResult.CANCEL) {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.CANCEL_OPERATION)
-                    .setMessage("Cancel Operation!").build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(context.getString(R.string.error_cancel_operation)))
             )
         } else if (checkCardResult == CheckCardResult.DEVICE_BUSY) {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_ERROR)
-                    .setMessage("Check Card Device Busy !").build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(context.getString(R.string.error_device_busy)))
             )
         } else if (checkCardResult == CheckCardResult.USE_ICC_CARD) {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_ERROR)
-                    .setMessage("Chip Card! Please Use Contact Interface,Please Insert Card!")
-                    .build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(context.getString(R.string.error_use_icc_card)))
             )
         } else if (checkCardResult == CheckCardResult.MULT_CARD) {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_ERROR)
-                    .setMessage("Multi Card! Please Insert One Card!")
-                    .build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(context.getString(R.string.error_multi_card)))
             )
         }
     }
@@ -243,11 +252,8 @@ class MyEmvListener @Inject constructor(
         if (i == 1) {
             mKernelApi.selectApplication(0)
         } else {
-            _reasonsEMV.postValue(
-                EmvReasonsModel.Builder()
-                    .setReason(EmvReason.MESSAGE_APP_SELECT)
-                    .setMessage(arrayList.joinToString(", "))
-                    .build()
+            _result.postValue(
+                UrovoResult.Error(Throwable(arrayList.joinToString(", ")))
             )
         }
     }
@@ -315,17 +321,9 @@ class MyEmvListener @Inject constructor(
         val PSN = mKernelApi.getValByTag(0x5F34)
 
         _isRequestOnlineProcess.postValue(true)
-        _reasonsEMV.postValue(
-            EmvReasonsModel.Builder().setReason(EmvReason.MESSAGE_REQUEST_ONLINE)
-                .setMessage("onConfirm PIN")
-                .build()
-        )
-        val responseData =
-            "910AFE82F70555A9F0473030726B9F180455354370861D8424000218AD9B9E46547AB571B47EB40866DE04793338F24228345D8B860E04DA9F53090715466A4E26CE5589861304DA9F540E00000000000166863111AB1A795C860E04DA9F580903BB4C60AADCDF34ED860E04DA9F590905BC0BFDA4A0DD3EF28A023030 "
 
-        mKernelApi.sendOnlineProcessResult(true, responseData)
-
-        //startTrading()
+        Log.i(TAG, "onRequestOnlineProcess: tlvData:$cardTlvData")
+        processPayment(tlvData = cardTlvData)
     }
 
 
@@ -354,44 +352,85 @@ class MyEmvListener @Inject constructor(
         val AC = mKernelApi.getValByTag(0x9F26)
         Log.i(TAG, "  onReturnTransactionResult AC:$AC")
 
-        if (transactionResult == TransactionResult.ONLINE_APPROVAL || transactionResult == TransactionResult.OFFLINE_APPROVAL) {
+        if (transactionResult == TransactionResult.ONLINE_APPROVAL) {
             soundPool.play(R.raw.success, 0.8f, 0.8f, 1, 0, 1f)
-
             mKernelApi.abortKernel()
-            //TODO pago aceptado
+            _posInputDatas.postValue(
+                _posInputDatas.value?.update(
+                    pzNumber = mSTIOS8583?.field11,
+                    stIso8583 = mSTIOS8583
+                )
+            )
             _result.postValue(UrovoResult.Success(posInputDatas.value!!))
         } else if (transactionResult == TransactionResult.ONLINE_DECLINED) {
+            soundPool.play(R.raw.success, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("online decline!")))
+            _posInputDatas.postValue(
+                _posInputDatas.value?.update(
+                    pzNumber = mSTIOS8583?.field11,
+                    stIso8583 = mSTIOS8583
+                )
+            )
+            _result.postValue(UrovoResult.Success(posInputDatas.value!!))
+
+//            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+//            mKernelApi.abortKernel()
+//            _result.postValue(UrovoResult.Error(Throwable("Transacción rechazada por el banco.")))
         } else if (transactionResult == TransactionResult.OFFLINE_DECLINED) {
-            _result.postValue(UrovoResult.Error(Throwable("offline decline!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Transacción rechazada por la tarjeta.")))
         } else if (transactionResult == TransactionResult.ICC_CARD_REMOVED) {
-            _result.postValue(UrovoResult.Error(Throwable("icc card removed!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Tarjeta retirada antes de completar la operación.")))
         } else if (transactionResult == TransactionResult.TERMINATED) {
-            _result.postValue(UrovoResult.Error(Throwable("terminated!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Operación terminada.")))
         } else if (transactionResult == TransactionResult.CANCELED_OR_TIMEOUT) {
-            _result.postValue(UrovoResult.Error(Throwable("canceled or timeout!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Operación cancelada o tiempo agotado.")))
         } else if (transactionResult == TransactionResult.CANCELED) {
-            _result.postValue(UrovoResult.Error(Throwable("canceled!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Operación cancelada.")))
         } else if (transactionResult == TransactionResult.CARD_BLOCKED_APP_FAIL) {
-            _result.postValue(UrovoResult.Error(Throwable("card blocked!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Tarjeta bloqueada.")))
         } else if (transactionResult == TransactionResult.APPLICATION_BLOCKED_APP_FAIL) {
-            _result.postValue(UrovoResult.Error(Throwable("application blocked!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Aplicación bloqueada.")))
         } else if (transactionResult == TransactionResult.INVALID_ICC_DATA) {
-            _result.postValue(UrovoResult.Error(Throwable("invalid icc data!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Datos de tarjeta inválidos. Intenta nuevamente.")))
         } else if (transactionResult == TransactionResult.NO_EMV_APPS) {
-            _result.postValue(UrovoResult.Error(Throwable("no emv apps!")))
+            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
+            mKernelApi.abortKernel()
+            _result.postValue(UrovoResult.Error(Throwable("Tarjeta incompatible o sin aplicaciones EMV.")))
         }
     }
 
     override fun onRequestDisplayText(displayText: ContantPara.DisplayText) {
         Log.i(TAG, "MainActivity  onRequestDisplayText")
-        _reasonsEMV.postValue(
-            EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_CARD_MESSAGE)
-                .setMessage(displayText.name)
-                .build()
-        )
+        when (displayText) {
+            ContantPara.DisplayText.USE_MAG_STRIPE -> {
+                _result.postValue(
+                    UrovoResult.Message(context.getString(R.string.use_mag_stripe))
+                )
+            }
+
+            ContantPara.DisplayText.APPROVED_PLEASE_SIGN -> {
+                _result.postValue(
+                    UrovoResult.Message(context.getString(R.string.approved_please_sign))
+                )
+            }
+        }
+
     }
 
 
@@ -422,12 +461,8 @@ class MyEmvListener @Inject constructor(
     //contactless Tip message callback
     override fun onNFCrequestTipsConfirm(msgID: NfcTipMessageID, msg: String) {
         Log.i(TAG, "onNFCrequestTipsConfirm: $msg")
-        _reasonsEMV.postValue(
-            EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_CARD_MESSAGE)
-                .setMessage(msg)
-                .build()
-        )
+        _result.postValue(UrovoResult.Message(msg))
+
     }
 
 
@@ -437,19 +472,14 @@ class MyEmvListener @Inject constructor(
         Log.d(TAG, "onNFCrequestOnline ")
         _isRequestOnlineProcess.postValue(true)
 
-        _reasonsEMV.postValue(
-            EmvReasonsModel.Builder().setMessage("onConfirm PIN")
-                .setReason(EmvReason.MESSAGE_REQUEST_ONLINE).build()
-        )
+        _result.postValue(UrovoResult.Message(context.getString(R.string.on_confirm_pin)))
+
     }
 
 
     override fun onNFCrequestImportPin(type: Int, lasttimeFlag: Int, amt: String) {
         Log.i(TAG, "onNFCrequestImportPin: ")
-        _reasonsEMV.postValue(
-            EmvReasonsModel.Builder()
-                .setReason(EmvReason.REQUEST_ONLINEPIN).setMessage("onConfirm PIN").build()
-        )
+        _result.postValue(UrovoResult.Message(context.getString(R.string.on_confirm_pin)))
         emv_proc_onlinePin()
     }
 
@@ -462,10 +492,8 @@ class MyEmvListener @Inject constructor(
 
     override fun onNFCErrorInfor(erroCode: NfcErrMessageID, strErrInfo: String) {
         Log.d(TAG, "onNFCErrorInfor: erroCode:$erroCode - onErrorInfor:$strErrInfo")
-        _reasonsEMV.postValue(
-            EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_ERROR).setMessage(strErrInfo).build()
-        )
+        _result.postValue(UrovoResult.Error(Throwable(strErrInfo)))
+
     }
 
 
@@ -747,11 +775,8 @@ class MyEmvListener @Inject constructor(
 
 
         Log.i("applog", "getPinBlockEx ")
-        _reasonsEMV.postValue(
-            EmvReasonsModel.Builder()
-                .setReason(EmvReason.MESSAGE_REQUEST_PIN)
-                .setMessage("pin_request").build()
-        )
+        _result.postValue(UrovoResult.Message(context.getString(R.string.pin_request)))
+
     }
 
     inner class AdminInputListener : PinInputListener {

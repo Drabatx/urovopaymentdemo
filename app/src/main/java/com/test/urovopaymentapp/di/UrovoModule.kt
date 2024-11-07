@@ -7,6 +7,7 @@ import com.test.urovopaymentapp.data.model.models.merchant.ConfigUtils
 import com.test.urovopaymentapp.data.model.models.merchant.MerchantParams
 import com.test.urovopaymentapp.data.model.models.merchant.MerchantPrefsTool
 import com.test.urovopaymentapp.data.model.models.merchant.SharedPrefsTool
+import com.test.urovopaymentapp.domain.repository.TradingRepositoryImpl
 import com.urovo.i9000s.api.emv.EmvNfcKernelApi
 import dagger.Module
 import dagger.Provides
@@ -30,6 +31,12 @@ object UrovoModule {
     @Singleton
     fun provideEmvNfcKernelApi(): EmvNfcKernelApi {
         return EmvNfcKernelApi.getInstance()
+    }
+
+    @Provides
+    @Singleton
+    fun provideTradingCardRepository(context: Context): TradingRepositoryImpl {
+        return TradingRepositoryImpl(context)
     }
 
     @Provides
