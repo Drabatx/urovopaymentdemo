@@ -6,7 +6,7 @@ import android.graphics.BitmapFactory;
 import android.text.TextUtils;
 
 import com.test.urovopaymentapp.R;
-import com.test.urovopaymentapp.data.model.StIso8583;
+import com.test.urovopaymentapp.data.model.models.StIso8583;
 import com.test.urovopaymentapp.data.model.pos2.constants.PosTransType;
 import com.lib.log.Log;
 import com.urovo.sdk.utils.DateUtil;

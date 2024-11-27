@@ -89,4 +89,11 @@ dependencies {
 
     implementation(libs.google.code.gson)
     implementation(libs.airbnb.lottie)
+
+    //Retorfit
+    implementation(libs.retrofit)
+    implementation(libs.retrofit.gson.converter)
+    implementation(libs.square.interceptor)
+    implementation(libs.kotlinx.serialization.json)
+
 }

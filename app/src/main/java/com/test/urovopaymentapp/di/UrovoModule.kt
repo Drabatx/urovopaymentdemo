@@ -1,12 +1,7 @@
 package com.test.urovopaymentapp.di
 
 import android.content.Context
-import android.os.Environment
-import com.test.urovopaymentapp.data.model.models.merchant.ConfigPrefsTool
-import com.test.urovopaymentapp.data.model.models.merchant.ConfigUtils
-import com.test.urovopaymentapp.data.model.models.merchant.MerchantParams
-import com.test.urovopaymentapp.data.model.models.merchant.MerchantPrefsTool
-import com.test.urovopaymentapp.data.model.models.merchant.SharedPrefsTool
+import com.test.urovopaymentapp.domain.network.ApiService
 import com.test.urovopaymentapp.domain.repository.TradingRepositoryImpl
 import com.urovo.i9000s.api.emv.EmvNfcKernelApi
 import dagger.Module
@@ -15,8 +10,43 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import java.io.File
+import okhttp3.Interceptor
+import okhttp3.OkHttpClient
+import okhttp3.logging.HttpLoggingInterceptor
+import retrofit2.Retrofit
+import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
+
+@Module
+@InstallIn(SingletonComponent::class)
+object NetworkModule{
+    @Provides
+    @Singleton
+    fun provideRetrofit(): Retrofit{
+        val interceptor = HttpLoggingInterceptor()
+        interceptor.level = HttpLoggingInterceptor.Level.BODY
+        val client = OkHttpClient.Builder()
+            .addInterceptor(interceptor)
+            .addInterceptor(Interceptor { chain->
+                val original = chain.request()
+                val requestBuilder = original.newBuilder()
+                    .header("accept", "application/json")
+                val request = requestBuilder.build()
+                chain.proceed(request)
+            }).build()
+        return Retrofit.Builder().baseUrl(NetworkConstants.BBVA_BASE_URL)
+            .addConverterFactory(GsonConverterFactory.create())
+            .client(client)
+            .build()
+    }
+
+    @Provides
+    @Singleton
+    fun provideApiService(retrofit: Retrofit): ApiService {
+        return retrofit.create(ApiService::class.java)
+    }
+
+}
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -35,58 +65,7 @@ object UrovoModule {
 
     @Provides
     @Singleton
-    fun provideTradingCardRepository(context: Context): TradingRepositoryImpl {
-        return TradingRepositoryImpl(context)
+    fun provideTradingCardRepository(context: Context, apiService: ApiService): TradingRepositoryImpl {
+        return TradingRepositoryImpl(context, apiService)
     }
-
-    @Provides
-    @Singleton
-    fun provideExternalApiDir(context: Context): File {
-        return File(Environment.getExternalStorageDirectory(), context.packageName)
-    }
-
-    @Provides
-    @Singleton
-    fun provideSharedPrefsTool(context: Context, externalApiDir: File): SharedPrefsTool {
-        return SharedPrefsTool(context, externalApiDir)
-    }
-
-    @Provides
-    @Singleton
-    fun provideMerchantPrefsTool(sharedPrefsTool: SharedPrefsTool, configUtils: ConfigUtils):MerchantPrefsTool {
-        return MerchantPrefsTool(sharedPrefsTool, configUtils)
-    }
-
-    @Provides
-    @Singleton
-    fun provideMerchantParams(merchantPrefsTool: MerchantPrefsTool): MerchantParams {
-        return MerchantParams(merchantPrefsTool)
-    }
-
-    @Provides
-    @Singleton
-    fun provideConfigPrefsTool(sharedPrefsTool: SharedPrefsTool): ConfigPrefsTool{
-        return ConfigPrefsTool(sharedPrefsTool)
-    }
-
-    @Provides
-    @Singleton
-    fun provideConfigUtils(configPrefsTool: ConfigPrefsTool): ConfigUtils {
-        return ConfigUtils(configPrefsTool)
-    }
-}
-
-@Module
-@InstallIn(ViewModelComponent::class)
-object CardReaderModule {
-
-//    @Provides
-//    fun provideMyEmvListener(
-//        mKernelApi: EmvNfcKernelApi,
-//        iBeeper: BeeperImpl,
-//        iLed: LEDDriverImpl
-//    ): MyEmvListener {
-//        return MyEmvListener(mKernelApi, iBeeper, iLed)
-//    }
-
 }

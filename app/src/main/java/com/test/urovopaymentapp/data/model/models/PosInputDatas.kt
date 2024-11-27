@@ -1,7 +1,7 @@
 package com.test.urovopaymentapp.data.model.pos2.models
 
 import com.google.gson.Gson
-import com.test.urovopaymentapp.data.model.StIso8583
+import com.test.urovopaymentapp.data.model.models.StIso8583
 import com.test.urovopaymentapp.data.model.db.TranslogModel
 import java.io.Serializable
 

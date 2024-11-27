@@ -6,5 +6,5 @@ import com.test.urovopaymentapp.utils.UrovoResult
 import kotlinx.coroutines.flow.Flow
 
 interface TradingRepository {
-    suspend fun startSale(posInputDatas: PosInputDatas): Flow<UrovoResult<TradingCardResponse>>
+    suspend fun loginToProcessPayments(): Flow<UrovoResult<TradingCardResponse>>
 }

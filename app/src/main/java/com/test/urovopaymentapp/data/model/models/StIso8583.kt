@@ -1,4 +1,4 @@
-package com.test.urovopaymentapp.data.model
+package com.test.urovopaymentapp.data.model.models
 
 import com.test.urovopaymentapp.utils.PrintUrtil
 import java.io.Serializable

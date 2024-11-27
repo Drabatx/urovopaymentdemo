@@ -12,7 +12,7 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.lib.card.constant.CardTypeConstant
 import com.test.urovopaymentapp.R
-import com.test.urovopaymentapp.data.model.StIso8583
+import com.test.urovopaymentapp.data.model.models.StIso8583
 import com.test.urovopaymentapp.data.model.pos2.constants.PosTransType
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.test.urovopaymentapp.domain.model.EmvReason
@@ -121,13 +121,13 @@ class MyEmvListener @Inject constructor(
     fun processPayment(tlvData: String) {
         runBlocking {
             posInputDatas.value?.let {
-                tradingRepository.startSale(it).collect { result ->
+                tradingRepository.loginToProcessPayments().collect { result ->
                     when (result) {
                         is UrovoResult.Success -> {
-                            val responseData =
-                                "8A02303091081AD4D51400820000710F860D842400000817C217D34162474C910A1397ECEFC7A605110012"
-                            mSTIOS8583 = StIso8583()
-                            mKernelApi.sendOnlineProcessResult(true, responseData)
+//                            val responseData =
+//                                "8A02303091081AD4D51400820000710F860D842400000817C217D34162474C910A1397ECEFC7A605110012"
+//                            mSTIOS8583 = StIso8583()
+                            mKernelApi.sendOnlineProcessResult(true, tlvData)
                         }
 
                         is UrovoResult.Error -> {
