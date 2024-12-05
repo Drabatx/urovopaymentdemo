@@ -12,11 +12,17 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.lib.card.constant.CardTypeConstant
 import com.test.urovopaymentapp.R
-import com.test.urovopaymentapp.data.model.models.StIso8583
 import com.test.urovopaymentapp.data.model.pos2.constants.PosTransType
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
-import com.test.urovopaymentapp.domain.model.EmvReason
-import com.test.urovopaymentapp.utils.UrovoResult
+import com.test.urovopaymentapp.domain.model.EmvConstants.AMOUNT
+import com.test.urovopaymentapp.domain.model.EmvConstants.CARD_TYPE_IC
+import com.test.urovopaymentapp.domain.model.EmvConstants.CHECK_CARD_MODE
+import com.test.urovopaymentapp.domain.model.EmvConstants.getEMVInstance
+import com.test.urovopaymentapp.utils.Result
+import com.test.urovopaymentapp.utils.exception.UrovoChecCardResultException
+import com.test.urovopaymentapp.utils.exception.UrovoMessageException
+import com.test.urovopaymentapp.utils.exception.UrovoSelectApplicationException
+import com.test.urovopaymentapp.utils.exception.UrovoTransactionException
 import com.urovo.i9000s.api.emv.ContantPara
 import com.urovo.i9000s.api.emv.ContantPara.CheckCardMode
 import com.urovo.i9000s.api.emv.ContantPara.CheckCardResult
@@ -35,6 +41,8 @@ import com.urovo.sdk.led.LEDDriverImpl
 import com.urovo.sdk.magcard.MagCardReaderImpl
 import com.urovo.sdk.pinpad.PinPadProviderImpl
 import com.urovo.sdk.pinpad.listener.PinInputListener
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.runBlocking
 import java.text.DecimalFormat
 import java.util.Hashtable
@@ -46,28 +54,23 @@ class MyEmvListener @Inject constructor(
     private val mKernelApi: EmvNfcKernelApi,
     private val context: Context,
     private val tradingRepository: TradingRepositoryImpl
-) : EmvListener, PosEveCallBack {
+) : EmvListener {
     private val TAG = "MyEmvListener"
 
-    private val _isRequestOnlineProcess = MutableLiveData(false)
-    val isRequestOnlineProcess: LiveData<Boolean> get() = _isRequestOnlineProcess
-
-    private val _result = MutableLiveData<UrovoResult<PosInputDatas>>(UrovoResult.Initial)
-    val result: LiveData<UrovoResult<PosInputDatas>> get() = _result
-
-//    private val _reasonsEMV = MutableLiveData<EmvReasonsModel>()
-//    val reasonsEMV: LiveData<EmvReasonsModel> get() = _reasonsEMV
+    private val _result = MutableStateFlow<Result<PosInputDatas>>(Result.Loading())
+    val result: StateFlow<Result<PosInputDatas>> get() = _result
 
     private val _posInputDatas: MutableLiveData<PosInputDatas> = MutableLiveData()
     val posInputDatas: LiveData<PosInputDatas> get() = _posInputDatas
 
     private var transType = 7
-    private var payCardType = 1 //0:mag，1：ic/rfid
+    private var payCardType = CARD_TYPE_IC //0:mag，1：ic/rfid
 
     private val pinpadlistener = AdminInputListener()
 
     val keyId: Int = 10
-    var mSTIOS8583: StIso8583? = null
+
+    //    var mSTIOS8583: StIso8583? = null
     lateinit var iMagCardReader: MagCardReaderImpl
     lateinit var iInsertCardReader: InsertCardHandlerImpl
     lateinit var pinpad: PinPadProviderImpl
@@ -83,34 +86,28 @@ class MyEmvListener @Inject constructor(
         mKernelApi.setContext(context)
         mKernelApi.LogOutEnable(1)
         soundPool = SoundPool(1, AudioManager.STREAM_NOTIFICATION, 100)
+
         errorsoundid = soundPool.load(context, R.raw.error, 1)
         scansoundid = soundPool.load(context, R.raw.success, 1)
-        transType = PosTransType.getEMVTransType(posInputDatas.value?.iTransNo ?: 7)
 
-        payCardType = 1 //0:mag，1：ic/rfid
+        transType = PosTransType.getEMVTransType(_posInputDatas.value?.iTransNo ?: 7)
+
+        payCardType = CARD_TYPE_IC //0:mag，1：ic/rfid
         iMagCardReader = MagCardReaderImpl.getInstance()
         iInsertCardReader = InsertCardHandlerImpl.getInstance()
         pinpad = PinPadProviderImpl.getInstance()
         iBeeper = BeeperImpl.getInstance()
         iLed = LEDDriverImpl.getInstance()
 
-        StartKernel(ContantPara.CheckCardMode.INSERT_OR_TAP)
+        startKernel(CheckCardMode.INSERT_OR_TAP)
     }
 
-    fun StartKernel(checkCardMode: CheckCardMode) {
-        Thread {
+    fun startKernel(checkCardMode: CheckCardMode) {
+        Thread{
             try {
-                Log.i(TAG, "++++++++++++++ run: startKernel")
-                val data = Hashtable<String, Any>()
-                data["checkCardMode"] = checkCardMode //
-                data["currencyCode"] = "682" //682
-                data["emvOption"] = ContantPara.EmvOption.START // START_WITH_FORCE_ONLINE
-                data["amount"] = posInputDatas.value?.amt ?: "0"
-                data["cashbackAmount"] = "0"
-                data["checkCardTimeout"] = "30" // Check Card time out .Second
-                data["transactionType"] = "00" //00-goods 01-cash 09-cashback 20-refund
-                data["isEnterAmtAfterReadRecord"] = false
-                data["supportDRL"] = true // support Visa DRL?
+                val data = getEMVInstance()
+                data[CHECK_CARD_MODE] = checkCardMode
+                data[AMOUNT] = posInputDatas.value?.amt ?: "0"
                 mKernelApi.startKernel(data)
             } catch (e: java.lang.Exception) {
                 e.printStackTrace()
@@ -120,26 +117,20 @@ class MyEmvListener @Inject constructor(
 
     fun processPayment(tlvData: String) {
         runBlocking {
-            posInputDatas.value?.let {
+            _posInputDatas.let {
                 tradingRepository.loginToProcessPayments().collect { result ->
                     when (result) {
-                        is UrovoResult.Success -> {
-//                            val responseData =
-//                                "8A02303091081AD4D51400820000710F860D842400000817C217D34162474C910A1397ECEFC7A605110012"
-//                            mSTIOS8583 = StIso8583()
+                        is Result.Success -> {
                             mKernelApi.sendOnlineProcessResult(true, tlvData)
                         }
 
-                        is UrovoResult.Error -> {
+                        is Result.Error -> {
                             mKernelApi.sendOnlineProcessResult(false, tlvData)
                         }
 
-                        is UrovoResult.Loading -> {
-                            _result.postValue(UrovoResult.Loading)
-                        }
-
-                        else -> {
-
+                        is Result.Loading -> {
+                            _result.value =
+                                Result.Loading(context.getString(R.string.processing_payment))
                         }
                     }
                 }
@@ -147,24 +138,17 @@ class MyEmvListener @Inject constructor(
         }
     }
 
-    fun setPosData(posData: PosInputDatas) {
-        _posInputDatas.postValue(posData)
-    }
-
-    override fun onEventComplete(stIOS8583: StIso8583?) {
-        Log.i(TAG, "onEventComplete: ")
-    }
-
     override fun onRequestSetAmount() {
-        Log.i(TAG, "onRequestSetAmount: ${posInputDatas.value?.amt}")
+        _result.value = Result.Loading(context.getString(R.string.loading_amount))
     }
 
     override fun onReturnCheckCardResult(
         checkCardResult: CheckCardResult,
         hashtable: Hashtable<String, String>
     ) {
-        Log.i(TAG, "onReturnCheckCardResult checkCardResult =$checkCardResult")
-        if (checkCardResult == CheckCardResult.MSR) {
+        if (checkCardResult == CheckCardResult.INSERTED_CARD){
+            _result.value = Result.Loading(context.getString(R.string.read_card_ready))
+        } else if (checkCardResult == CheckCardResult.MSR) {
             val stripStr = hashtable["StripInfo"]!!.uppercase(Locale.getDefault())
             val cardNo = hashtable["CardNo"]
 
@@ -194,6 +178,7 @@ class MyEmvListener @Inject constructor(
                 index++
                 val EXPIRED_DATE = track2.substring(index, index + 4)
                 val SERVICE_CODE = track2.substring(index + 4, index + 4 + 3)
+
                 _posInputDatas.postValue(
                     _posInputDatas.value?.update(
                         pan = PAN,
@@ -203,47 +188,42 @@ class MyEmvListener @Inject constructor(
                 )
 
             }
-            _posInputDatas.postValue(_posInputDatas.value?.update(swipedMode = CardTypeConstant.MSR))
-
-            _result.postValue(UrovoResult.Error(Throwable(EmvReason.MESSAGE_MSR.name)))
-
+            //TODO Procesar Pago
+//            _posInputDatas.update(swipedMode = CardTypeConstant.MSR)
+//            _result.value = Result.Error(UrovoMessageException())
+//            _result.value = UrovoResult.Message(EmvReason.MESSAGE_MSR)
         } else if (checkCardResult == CheckCardResult.NEED_FALLBACK) {
-            _result.postValue(
-                UrovoResult.Error(Throwable(context.getString(R.string.error_need_fallback)))
-            )
+            _result.value =
+                Result.Error(UrovoChecCardResultException(context.getString(R.string.error_need_fallback)))
         } else if (checkCardResult == CheckCardResult.BAD_SWIPE) {
-            _result.postValue(
-                UrovoResult.Error(Throwable(context.getString(R.string.error_bad_swipe)))
-            )
+            _result.value =
+                Result.Error(UrovoChecCardResultException(context.getString(R.string.error_bad_swipe)))
         } else if (checkCardResult == CheckCardResult.NOT_ICC) {
-            _result.postValue(
-                UrovoResult.Error(Throwable(context.getString(R.string.error_not_icc)))
-            )
+            _result.value =
+                Result.Error(UrovoChecCardResultException(context.getString(R.string.error_not_icc)))
         } else if (checkCardResult == CheckCardResult.TIMEOUT) {
-            _result.postValue(
-                UrovoResult.Error(Throwable(context.getString(R.string.error_timeout)))
-            )
+            _result.value =
+                Result.Error(UrovoChecCardResultException(context.getString(R.string.error_timeout)))
+
         } else if (checkCardResult == CheckCardResult.CANCEL) {
-            _result.postValue(
-                UrovoResult.Error(Throwable(context.getString(R.string.error_cancel_operation)))
-            )
+            _result.value =
+                Result.Error(UrovoChecCardResultException(context.getString(R.string.error_cancel_operation)))
         } else if (checkCardResult == CheckCardResult.DEVICE_BUSY) {
-            _result.postValue(
-                UrovoResult.Error(Throwable(context.getString(R.string.error_device_busy)))
-            )
+            _result.value =
+                Result.Error(UrovoChecCardResultException(context.getString(R.string.error_device_busy)))
         } else if (checkCardResult == CheckCardResult.USE_ICC_CARD) {
-            _result.postValue(
-                UrovoResult.Error(Throwable(context.getString(R.string.error_use_icc_card)))
-            )
+            _result.value =
+                Result.Error(UrovoChecCardResultException(context.getString(R.string.error_not_icc)))
         } else if (checkCardResult == CheckCardResult.MULT_CARD) {
-            _result.postValue(
-                UrovoResult.Error(Throwable(context.getString(R.string.error_multi_card)))
-            )
+            _result.value =
+                Result.Error(UrovoChecCardResultException(context.getString(R.string.error_multi_card)))
         }
     }
 
     override fun onRequestSelectApplication(arrayList: ArrayList<String>) {
         Log.i(TAG, "MainActivity  onRequestSelectApplication")
+        _result.value = Result.Loading("onRequestSelectApplication")
+
         var i = 0
         while (i < arrayList.size) {
             Log.d(TAG, "app name " + i + " : " + arrayList[i])
@@ -252,8 +232,8 @@ class MyEmvListener @Inject constructor(
         if (i == 1) {
             mKernelApi.selectApplication(0)
         } else {
-            _result.postValue(
-                UrovoResult.Error(Throwable(arrayList.joinToString(", ")))
+            _result.value = Result.Error(
+                UrovoSelectApplicationException(message = arrayList.joinToString(", "))
             )
         }
     }
@@ -262,14 +242,13 @@ class MyEmvListener @Inject constructor(
     //if contact online pin verify, will callback
     override fun onRequestPinEntry(pinEntrySource: PinEntrySource) {
         Log.i(TAG, "MainActivity  onRequestPinEntry request online pin")
-        if (pinEntrySource == PinEntrySource.KEYPAD) {
-            _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
-            if (pinEntrySource == PinEntrySource.KEYPAD) {
-                _posInputDatas.postValue(_posInputDatas.value?.update(pan = GetCardNo()))
-//                _reasonsEMV.postValue(EmvReasonsModel("Request Pin", EmvReason.MESSAGE_REQUEST_PIN))
-                emv_proc_onlinePin()
-            }
-        }
+//        if (pinEntrySource == PinEntrySource.KEYPAD) {
+//            _posInputDatas.update(pan = GetCardNo())
+//            if (pinEntrySource == PinEntrySource.KEYPAD) {
+//                _posInputDatas.update(pan = GetCardNo())
+//                emv_proc_onlinePin()
+//            }
+//        }
     }
 
     override fun onRequestOfflinePinEntry(pinEntrySource: PinEntrySource, PinTryCount: Int) {
@@ -278,6 +257,8 @@ class MyEmvListener @Inject constructor(
 
     override fun onRequestConfirmCardno() {
         Log.d(TAG, "CardNo:" + GetCardNo())
+        _result.value = Result.Loading("Obteniendo datos de tarjeta")
+
         _posInputDatas.postValue(_posInputDatas.value?.update(swipedMode = CardTypeConstant.IC))
         iBeeper.startBeep(1, 200)
         try {
@@ -298,7 +279,7 @@ class MyEmvListener @Inject constructor(
                 szExpDate = mKernelApi.getValByTag(0x5F24)
             )
         )
-        //Se auto confirma la tarjeta
+
         mKernelApi.sendConfirmCardnoResult(true)
     }
 
@@ -317,12 +298,12 @@ class MyEmvListener @Inject constructor(
                 file55 = cardTlvData
             )
         )
+
         val TVR = mKernelApi.getValByTag(0x95)
         val PSN = mKernelApi.getValByTag(0x5F34)
 
-        _isRequestOnlineProcess.postValue(true)
-
         Log.i(TAG, "onRequestOnlineProcess: tlvData:$cardTlvData")
+        _result.value = Result.Loading("Procesando pago")
         processPayment(tlvData = cardTlvData)
     }
 
@@ -337,7 +318,6 @@ class MyEmvListener @Inject constructor(
                 file55 = cardTlvData
             )
         )
-        _isRequestOnlineProcess.postValue(true)
     }
 
 
@@ -355,23 +335,22 @@ class MyEmvListener @Inject constructor(
         if (transactionResult == TransactionResult.ONLINE_APPROVAL) {
             soundPool.play(R.raw.success, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _posInputDatas.postValue(
-                _posInputDatas.value?.update(
-                    pzNumber = mSTIOS8583?.field11,
-                    stIso8583 = mSTIOS8583
-                )
-            )
-            _result.postValue(UrovoResult.Success(posInputDatas.value!!))
+//            _posInputDatas.update(
+//                pzNumber = mSTIOS8583?.field11,
+//                stIso8583 = mSTIOS8583
+//            )
+//
+//            _result.postValue(UrovoResult.Success(posInputDatas.value!!))
         } else if (transactionResult == TransactionResult.ONLINE_DECLINED) {
             soundPool.play(R.raw.success, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _posInputDatas.postValue(
-                _posInputDatas.value?.update(
-                    pzNumber = mSTIOS8583?.field11,
-                    stIso8583 = mSTIOS8583
-                )
-            )
-            _result.postValue(UrovoResult.Success(posInputDatas.value!!))
+//            _posInputDatas.update(
+//                pzNumber = mSTIOS8583?.field11,
+//                stIso8583 = mSTIOS8583
+//            )
+
+
+//            _result.value = Result.Success(posInputDatas.value!!))
 
 //            soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
 //            mKernelApi.abortKernel()
@@ -379,39 +358,48 @@ class MyEmvListener @Inject constructor(
         } else if (transactionResult == TransactionResult.OFFLINE_DECLINED) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Transacción rechazada por la tarjeta.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_offline_declined)))
         } else if (transactionResult == TransactionResult.ICC_CARD_REMOVED) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Tarjeta retirada antes de completar la operación.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_icc_card_removed)))
         } else if (transactionResult == TransactionResult.TERMINATED) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Operación terminada.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_operation_terminated)))
         } else if (transactionResult == TransactionResult.CANCELED_OR_TIMEOUT) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Operación cancelada o tiempo agotado.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_canceled_timeout)))
         } else if (transactionResult == TransactionResult.CANCELED) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Operación cancelada.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_canceled)))
         } else if (transactionResult == TransactionResult.CARD_BLOCKED_APP_FAIL) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Tarjeta bloqueada.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_card_blocked)))
         } else if (transactionResult == TransactionResult.APPLICATION_BLOCKED_APP_FAIL) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Aplicación bloqueada.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_app_blocked)))
         } else if (transactionResult == TransactionResult.INVALID_ICC_DATA) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Datos de tarjeta inválidos. Intenta nuevamente.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_invalid_icc_data)))
         } else if (transactionResult == TransactionResult.NO_EMV_APPS) {
             soundPool.play(R.raw.error, 0.8f, 0.8f, 1, 0, 1f)
             mKernelApi.abortKernel()
-            _result.postValue(UrovoResult.Error(Throwable("Tarjeta incompatible o sin aplicaciones EMV.")))
+            _result.value =
+                Result.Error(UrovoTransactionException(context.getString(R.string.err_no_emv_apps)))
         }
     }
 
@@ -419,15 +407,14 @@ class MyEmvListener @Inject constructor(
         Log.i(TAG, "MainActivity  onRequestDisplayText")
         when (displayText) {
             ContantPara.DisplayText.USE_MAG_STRIPE -> {
-                _result.postValue(
-                    UrovoResult.Message(context.getString(R.string.use_mag_stripe))
-                )
+                _result.value =
+                    Result.Error(UrovoMessageException(context.getString(R.string.use_mag_stripe)))
             }
 
             ContantPara.DisplayText.APPROVED_PLEASE_SIGN -> {
-                _result.postValue(
-                    UrovoResult.Message(context.getString(R.string.approved_please_sign))
-                )
+                _result.value =
+                    Result.Error(UrovoMessageException(context.getString(R.string.approved_please_sign)))
+
             }
         }
 
@@ -448,7 +435,6 @@ class MyEmvListener @Inject constructor(
         }
     }
 
-    //if you call mEmvApi.getIssuerScriptResult() ,this will callback
     override fun onReturnIssuerScriptResult(issuerScriptResult: IssuerScriptResult, s: String) {
         if (issuerScriptResult == IssuerScriptResult.SUCCESS) {
             Log.d(TAG, "onReturnIssuerScriptResult:$s")
@@ -457,97 +443,17 @@ class MyEmvListener @Inject constructor(
         }
     }
 
+    override fun onNFCrequestTipsConfirm(msgID: NfcTipMessageID, msg: String) {}
 
-    //contactless Tip message callback
-    override fun onNFCrequestTipsConfirm(msgID: NfcTipMessageID, msg: String) {
-        Log.i(TAG, "onNFCrequestTipsConfirm: $msg")
-        _result.postValue(UrovoResult.Message(msg))
+    override fun onNFCrequestOnline() {}
 
-    }
+    override fun onNFCrequestImportPin(type: Int, lasttimeFlag: Int, amt: String) {}
 
+    override fun onNFCTransResult(result: NfcTransResult) {}
 
-    //go online send data to host ,then import online result
-    override fun onNFCrequestOnline() {
-        //should send to host
-        Log.d(TAG, "onNFCrequestOnline ")
-        _isRequestOnlineProcess.postValue(true)
+    override fun onNFCErrorInfor(erroCode: NfcErrMessageID, strErrInfo: String) {}
 
-        _result.postValue(UrovoResult.Message(context.getString(R.string.on_confirm_pin)))
-
-    }
-
-
-    override fun onNFCrequestImportPin(type: Int, lasttimeFlag: Int, amt: String) {
-        Log.i(TAG, "onNFCrequestImportPin: ")
-        _result.postValue(UrovoResult.Message(context.getString(R.string.on_confirm_pin)))
-        emv_proc_onlinePin()
-    }
-
-
-    override fun onNFCTransResult(result: NfcTransResult) {
-        Log.i(TAG, "onNFCTransResult: ${result.name}")
-        val value = mKernelApi.getValByTag(0x5F20)
-        Log.i(TAG, "onNFCTransResult: 5F20=$value")
-    }
-
-    override fun onNFCErrorInfor(erroCode: NfcErrMessageID, strErrInfo: String) {
-        Log.d(TAG, "onNFCErrorInfor: erroCode:$erroCode - onErrorInfor:$strErrInfo")
-        _result.postValue(UrovoResult.Error(Throwable(strErrInfo)))
-
-    }
-
-
-    //save data about go online or offline
-    override fun onReturnNfcCardData(hashtable: Hashtable<String, String>) {
-        val ksn = hashtable["KSN"]
-        val TrackData = hashtable["TRACKDATA"]
-        val EmvData = hashtable["EMVDATA"]
-        val QPBOCType = hashtable["QPBOCTYPE"]
-        _posInputDatas.postValue(_posInputDatas.value?.update(swipedMode = CardTypeConstant.RFID))
-        var tagValue = mKernelApi.getValByTag(0x9F26)
-        if (tagValue != null) {
-            Log.d(TAG, "tagValue 0x9F26:$tagValue")
-        }
-        val Track = mKernelApi.getValByTag(0x57)
-        Log.i(TAG, " Track:$Track")
-        Log.i(TAG, " CardNo:" + GetCardNo())
-
-        tagValue = mKernelApi.getValByTag(0x9F24) //use for contact or contactless
-        if (tagValue != null) {
-            Log.d(TAG, "tagValue 0x9F24:$tagValue")
-        }
-        val TVR = mKernelApi.getValByTag(0x95)
-        Log.d(TAG, "tagValue 0x95:$TVR")
-
-        tagValue = mKernelApi.getValByTag(0x9F41)
-        if (tagValue != null) Log.d(TAG, "tagValue 0x9F41:$tagValue")
-        tagValue = mKernelApi.getValByTag(0x9F1E)
-        if (tagValue != null) Log.d(TAG, "tagValue 0x9F1E:$tagValue")
-        tagValue = mKernelApi.getValByTag(0x5F34)
-        if (tagValue != null) Log.d(TAG, "tagValue 0x5F34:$tagValue")
-
-
-        val MstripMode = mKernelApi.mstripFlag
-        if (MstripMode == 1) {
-            val track2 = mKernelApi.getValByTag(0x9F6B)
-            Log.d(TAG, "mStrip track2:$track2")
-        }
-
-        Log.d(TAG, "onReturnNfcCardData")
-        Log.d(TAG, "KSN:$ksn")
-        Log.d(TAG, "TrackData:$TrackData")
-        Log.d(TAG, "EmvData:$EmvData")
-
-        _posInputDatas.postValue(
-            _posInputDatas.value?.update(
-                pan = GetCardNo(),
-                track2 = mKernelApi.getValByTag(0x57),
-                szCardSeqNo = mKernelApi.getValByTag(0x5F34),
-                szExpDate = mKernelApi.getValByTag(0x5F24),
-                file55 = EmvData
-            )
-        )
-    }
+    override fun onReturnNfcCardData(hashtable: Hashtable<String, String>) {}
 
     private fun getAmt(field54: String): String {
         var field54 = field54
@@ -756,28 +662,6 @@ class MyEmvListener @Inject constructor(
         return iret
     }
 
-    fun emv_proc_onlinePin() {
-        Log.i("applog", "emv_proc_onlinePin")
-        val param = Bundle()
-//        if (isDUKPT) param.putInt("PINKeyNo", 3)
-//        else
-        param.putInt("PINKeyNo", keyId)
-        val cardno: String = GetCardNo()
-        Log.i("applog", "emv_proc_onlinePin cardno $cardno")
-        param.putString("cardNo", cardno)
-        param.putBoolean("sound", true)
-        param.putBoolean("onlinePin", true)
-        param.putBoolean("FullScreen", true)
-        param.putLong("timeOutMS", (60 * 1000).toLong())
-        param.putString("supportPinLen", "0,4,5,6,7,8,9,10,11,12") // "4,4");   //
-        param.putString("title", "Security Keyboard")
-        param.putString("message", "Please Enter PIN" + "\n") // use your real amount
-
-
-        Log.i("applog", "getPinBlockEx ")
-        _result.postValue(UrovoResult.Message(context.getString(R.string.pin_request)))
-
-    }
 
     inner class AdminInputListener : PinInputListener {
         override fun onInput(len: Int, key: Int) {
@@ -788,9 +672,8 @@ class MyEmvListener @Inject constructor(
                 mKernelApi.bypassPinEntry() //bypass
             } else {
                 _posInputDatas.postValue(
-                    _posInputDatas.value?.update(
-                        szPINData = String(pinBlock)
-                    )
+                    _posInputDatas.value?.update(szPINData = String(pinBlock))
+                        ?: _posInputDatas.value
                 )
                 mKernelApi.sendPinEntry()
             }

@@ -13,13 +13,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
@@ -41,109 +40,112 @@ import com.test.urovopaymentapp.R
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.test.urovopaymentapp.data.model.pos2.models.toJson
 import com.test.urovopaymentapp.data.model.pos2.models.toPosInputDatas
-import com.test.urovopaymentapp.domain.model.EmvReason
 import com.test.urovopaymentapp.presentation.navigation.Screen
 import com.test.urovopaymentapp.presentation.view.dialogs.LoadingDialog
 import com.test.urovopaymentapp.presentation.view.dialogs.MessageDialog
 import com.test.urovopaymentapp.presentation.view.viewmodels.CardReaderViewModel
 import com.test.urovopaymentapp.presentation.view.widgets.MyTopBar
-import com.test.urovopaymentapp.utils.UrovoResult
+import com.test.urovopaymentapp.utils.Result
 import com.test.urovopaymentapp.utils.formatCardNumber
 import kotlinx.coroutines.Dispatchers
 
 private const val TAG = "CardReaderScreen"
+
 @Composable
 fun CardReaderScreen(
     navController: NavController,
     inpuDatas: String,
     viewModel: CardReaderViewModel
 ) {
-    val posInputData by viewModel.livePosInputDatas.observeAsState(inpuDatas.toPosInputDatas())
-    val resultPayment by viewModel.resultEMV.observeAsState()
-
-    Scaffold(topBar = { MyTopBar("Leer Tarjeta") }) { peddingValues ->
-        resultPayment?.let {
-            Log.i(TAG, "CardReaderScreen: ")
-            when(it){
-                is UrovoResult.Success->{
-                    if(viewModel.hasNavigated.value == false){
-                        Log.i(TAG, "CardReaderScreen: onResult")
-                        navController.navigate(Screen.ResultTransacction.createRoute(it.data.toJson())){
-                            popUpTo(Screen.Home.route)
-                            launchSingleTop = true
-                            viewModel.setHasNavigated()
-                        }
-                    }
-                }
-
-                is UrovoResult.Error -> {
-                    MessageDialog(
-                        title = stringResource(id = R.string.error_title),
-                        text = it.exception.message?: stringResource(id = R.string.error_generic),
-                        showDialog = true,
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Filled.Error,
-                                contentDescription = "Error Icon",
-                                tint = Color.Red, // Cambia el color a rojo
-                                modifier = Modifier.size(24.dp) // Tamaño del icono
-                            )
-                        },
-                        primaryButtonText = stringResource(
-                            R.string.accept
-                        ),
-                        onConfirm = {
-                            navController.popBackStack()
-                        }
-                    )
-                }
-                is UrovoResult.Message -> {
-                    MessageDialog(
-                        title = stringResource(id = R.string.atention),
-                        text = it.message,
-                        icon = {
-                            Icon(
-                                imageVector = Icons.Filled.Info,
-                                contentDescription = "Info Icon",
-                                tint = Color.Blue, // Cambia el color a rojo
-                                modifier = Modifier.size(24.dp) // Tamaño del icono
-                            )
-                        },
-                        showDialog = true,
-
-                        primaryButtonText = stringResource(
-                            R.string.accept
-                        ),
-                        onConfirm = {
-                            navController.popBackStack()
-                        }
-                    )                }
-                UrovoResult.Initial -> {}
-                UrovoResult.Loading -> {
-                    LoadingDialog(isLoading = true, message = stringResource(id = R.string.processing_payment))
-                }
-            }
-        }
-        CardReaderBody(peddingValues, posInputData)
-
-    }
+    val posInputData by viewModel.posInputDatas.observeAsState(inpuDatas.toPosInputDatas())
+    val resultPayment by viewModel.result.collectAsState()
     LaunchedEffect(Dispatchers.IO) {
         viewModel.initEmvListener(
             posInputDatas = posInputData
         )
     }
+    Scaffold(topBar = { MyTopBar("Leer Tarjeta") }) { peddingValues ->
+        Box(
+            modifier = Modifier.padding(
+                vertical = peddingValues.calculateTopPadding(), horizontal = 16.dp
+            )
+        ) {
+            CardReaderBody(posInputData = posInputData)
+            resultPayment.let {
+                when (it) {
+                    is Result.Success -> {
+                        if (viewModel.hasNavigated.value == false) {
+                            navController.navigate(Screen.ResultTransacction.createRoute(it.data.toJson())) {
+                                popUpTo(Screen.Home.route)
+                                launchSingleTop = true
+                                viewModel.setHasNavigated()
+                            }
+                        }
+                    }
+
+                    is Result.Error -> {
+                        MessageDialog(
+                            title = stringResource(id = R.string.error_title),
+                            text = it.exception.message
+                                ?: stringResource(id = R.string.error_generic),
+                            showDialog = true,
+                            icon = {
+                                Icon(
+                                    imageVector = Icons.Filled.Error,
+                                    contentDescription = "Error Icon",
+                                    tint = Color.Red, // Cambia el color a rojo
+                                    modifier = Modifier.size(24.dp) // Tamaño del icono
+                                )
+                            },
+                            primaryButtonText = stringResource(
+                                R.string.accept
+                            ),
+                            onConfirm = {
+                                navController.popBackStack()
+                            }
+                        )
+                    }
+
+                    is Result.Loading -> {
+                        if (it.message.isNotEmpty()){
+                            LoadingDialog(isLoading = true, message = it.message)
+                        }
+                    }
+
+//                is UrovoResult.Message -> {
+//                    MessageDialog(
+//                        title = stringResource(id = R.string.atention),
+//                        text = it.message,
+//                        icon = {
+//                            Icon(
+//                                imageVector = Icons.Filled.Info,
+//                                contentDescription = "Info Icon",
+//                                tint = Color.Blue, // Cambia el color a rojo
+//                                modifier = Modifier.size(24.dp) // Tamaño del icono
+//                            )
+//                        },
+//                        showDialog = true,
+//
+//                        primaryButtonText = stringResource(
+//                            R.string.accept
+//                        ),
+//                        onConfirm = {
+//                            navController.popBackStack()
+//                        }
+//                    )                }
+//
+                }
+            }
+        }
+    }
+
 }
 
 @Composable
 private fun CardReaderBody(
-    peddingValues: PaddingValues,
     posInputData: PosInputDatas
 ) {
-    Column(
-        modifier = Modifier.padding(
-            vertical = peddingValues.calculateTopPadding(), horizontal = 16.dp
-        )
-    ) {
+    Column {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 text = "Total a pagar",
@@ -213,7 +215,7 @@ fun PreviewCardReaderScreen() {
     val dummyPaddingValues = PaddingValues(16.dp)
     val dummyPosInputDatas =
         PosInputDatas.Builder().setAmt("1500").setPan("1111222233334444").build()
-    CardReaderBody(peddingValues = dummyPaddingValues, posInputData = dummyPosInputDatas)
+    CardReaderBody(posInputData = dummyPosInputDatas)
 }
 
 fun Double.formatDouble(): String {

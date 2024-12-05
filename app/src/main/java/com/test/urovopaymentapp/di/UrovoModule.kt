@@ -7,7 +7,6 @@ import com.urovo.i9000s.api.emv.EmvNfcKernelApi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.components.ViewModelComponent
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import okhttp3.Interceptor
@@ -65,7 +64,7 @@ object UrovoModule {
 
     @Provides
     @Singleton
-    fun provideTradingCardRepository(context: Context, apiService: ApiService): TradingRepositoryImpl {
-        return TradingRepositoryImpl(context, apiService)
+    fun provideTradingCardRepository(apiService: ApiService): TradingRepositoryImpl {
+        return TradingRepositoryImpl(apiService)
     }
 }

@@ -29,7 +29,7 @@ class PosInputDatas private constructor(
     /**
      * Monto de la transacción.
      */
-    var amt: String = "",
+    var amt: String = "0.0",
 
     /**
      * Contraseña del titular de la tarjeta.

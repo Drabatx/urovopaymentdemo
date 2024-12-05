@@ -55,5 +55,16 @@
     <string name="pin_request">Por favor, ingrese su PIN</string>
     <string name="atention">Atención</string>
     <string name="processing_payment">Se está procesando su pago</string>
+    <string name="err_offline_declined">Transacción rechazada por la tarjeta.</string>
+    <string name="err_icc_card_removed">Tarjeta retirada antes de completar la operación.</string>
+    <string name="err_operation_terminated">Operación terminada.</string>
+    <string name="err_canceled_timeout">Operación cancelada o tiempo agotado.</string>
+    <string name="err_canceled">Operación cancelada.</string>
+    <string name="err_card_blocked">Tarjeta bloqueada.</string>
+    <string name="err_app_blocked">Aplicación bloqueada.</string>
+    <string name="err_invalid_icc_data">Datos de tarjeta inválidos. Intenta nuevamente.</string>
+    <string name="err_no_emv_apps">Tarjeta incompatible o sin aplicaciones EMV.</string>
+    <string name="loading_amount">Confirmando monto</string>
+    <string name="read_card_ready">Leyendo tarjeta</string>
 
 </resources>
