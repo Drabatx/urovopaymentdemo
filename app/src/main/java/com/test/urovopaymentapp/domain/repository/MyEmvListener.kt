@@ -32,6 +32,7 @@ import com.test.urovopaymentapp.domain.model.request_pago_ci.OperationType
 import com.test.urovopaymentapp.domain.model.request_pago_ci.RequestPagoCi
 import com.test.urovopaymentapp.domain.model.request_pago_ci.Sender
 import com.test.urovopaymentapp.domain.model.request_pago_ci.TaxableCash
+import com.test.urovopaymentapp.domain.model.response_pago_ci.ResponsePagoCI
 import com.test.urovopaymentapp.utils.Result
 import com.test.urovopaymentapp.utils.exception.ConnectServerException
 import com.test.urovopaymentapp.utils.exception.UrovoChecCardResultException
@@ -72,8 +73,8 @@ class MyEmvListener @Inject constructor(
 ) : EmvListener {
     private val TAG = "MyEmvListener"
 
-    private val _result = MutableStateFlow<Result<PosInputDatas>>(Result.Loading())
-    val result: StateFlow<Result<PosInputDatas>> get() = _result
+    private val _result = MutableStateFlow<Result<ResponsePagoCI>>(Result.Loading())
+    val result: StateFlow<Result<ResponsePagoCI>> get() = _result
 
     private val _posInputDatas: MutableLiveData<PosInputDatas> = MutableLiveData()
     val posInputDatas: LiveData<PosInputDatas> get() = _posInputDatas
@@ -132,23 +133,21 @@ class MyEmvListener @Inject constructor(
 
     fun loginToServer(tlvData: String) {
         runBlocking {
-            posInputDatas.let {
-                val request = grantingTicketRequest()
-                tradingRepository.loginToProcessPayments(request).collect { response ->
-                    when (response) {
-                        is Result.Success -> {
-                            processPayment(tlvData = tlvData, response.data)
-                        }
+            val request = grantingTicketRequest()
+            tradingRepository.loginToProcessPayments(request).collect { response ->
+                when (response) {
+                    is Result.Success -> {
+                        processPayment(tlvData = tlvData, response.data)
+                    }
 
-                        is Result.Error -> {
-                            _result.value =
-                                Result.Error(ConnectServerException(context.getString(R.string.err_login_server)))
-                        }
+                    is Result.Error -> {
+                        _result.value =
+                            Result.Error(ConnectServerException(context.getString(R.string.err_login_server)))
+                    }
 
-                        is Result.Loading -> {
-                            _result.value =
-                                Result.Loading(context.getString(R.string.login_server))
-                        }
+                    is Result.Loading -> {
+                        _result.value =
+                            Result.Loading(context.getString(R.string.login_server))
                     }
                 }
             }
@@ -163,6 +162,7 @@ class MyEmvListener @Inject constructor(
         val authentication = Authentication.Builder()
             .setUserID(MerchantConfig.authUserId)
             .setConsumerID(MerchantConfig.authConsumerId)
+            .setAuthenticationType(MerchantConfig.authenticationType)
             .setAuthenticationData(listOf(autenticationData))
             .build()
         val backendUserRequest = BackendUserRequest.Builder()
@@ -212,7 +212,9 @@ class MyEmvListener @Inject constructor(
                 tradingRepository.processPaymentCI(tsec = tsec, request = request).collect {
                     when (it) {
                         is Result.Success -> {
-                            mKernelApi.sendOnlineProcessResult(true, tlvData)
+                            _result.value = Result.Success(it.data)
+
+//                            mKernelApi.sendOnlineProcessResult(true, tlvData)
                         }
 
                         is Result.Error -> {

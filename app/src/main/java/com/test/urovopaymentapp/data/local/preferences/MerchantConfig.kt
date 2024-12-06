@@ -1,7 +1,7 @@
 package com.test.urovopaymentapp.data.local.preferences
 
+import android.content.Context
 import android.content.SharedPreferences
-import com.test.urovopaymentapp.MyApp
 import com.test.urovopaymentapp.domain.repository.AUTHENTICATION_CONSUMER_ID
 import com.test.urovopaymentapp.domain.repository.AUTHENTICATION_DATA
 import com.test.urovopaymentapp.domain.repository.AUTHENTICATION_TYPE
@@ -18,14 +18,20 @@ import com.test.urovopaymentapp.domain.repository.ID_AUTHENTICATION_DATA
  */
 object MerchantConfig {
 
+    private var sharedPreferences: SharedPreferences? = null
+
+
+    fun initialize(context: Context) {
+        sharedPreferences = SharedPrefsTool.getInstances(
+            context = context.applicationContext,
+            prefsName = SharedPrefsTool.MERCHANT_PREFS_NAME
+        )
+    }
+
+
     fun getInstance(): SharedPreferences {
-        return MyApp.getInstance()
-            .let {
-                SharedPrefsTool.getInstances(
-                    context = it.applicationContext,
-                    SharedPrefsTool.MERCHANT_PREFS_NAME
-                )
-            }
+        return sharedPreferences
+            ?: throw IllegalStateException("MerchantConfig not initialized")
     }
 
     var authUserId: String
@@ -82,17 +88,17 @@ object MerchantConfig {
         get() = getInstance().let {
             SharedPrefsTool.get(it, BACKEND_USER_ID, "")
         }
-    set(value) {
-        getInstance().let {
-            SharedPrefsTool.put(it, BACKEND_USER_ID, value)
+        set(value) {
+            getInstance().let {
+                SharedPrefsTool.put(it, BACKEND_USER_ID, value)
+            }
         }
-    }
 
     var backendAccessCode: String
         get() = getInstance().let {
             SharedPrefsTool.get(it, BACKEND_ACCESS_CODE, "")
         }
-        set(value){
+        set(value) {
             getInstance().let {
                 SharedPrefsTool.put(it, BACKEND_ACCESS_CODE, value)
             }
@@ -102,7 +108,7 @@ object MerchantConfig {
         get() = getInstance().let {
             SharedPrefsTool.get(it, BACKEND_DIALOG_ID, "")
         }
-        set(value){
+        set(value) {
             getInstance().let {
                 SharedPrefsTool.put(it, BACKEND_DIALOG_ID, value)
             }

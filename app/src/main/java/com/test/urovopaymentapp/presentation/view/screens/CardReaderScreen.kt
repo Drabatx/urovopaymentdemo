@@ -32,9 +32,7 @@ import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
 import com.test.urovopaymentapp.R
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
-import com.test.urovopaymentapp.data.model.pos2.models.toJson
 import com.test.urovopaymentapp.data.model.pos2.models.toPosInputDatas
-import com.test.urovopaymentapp.presentation.navigation.Screen
 import com.test.urovopaymentapp.presentation.view.dialogs.AlertType
 import com.test.urovopaymentapp.presentation.view.dialogs.LoadingDialog
 import com.test.urovopaymentapp.presentation.view.dialogs.MessageDialog
@@ -70,11 +68,15 @@ fun CardReaderScreen(
                 when (it) {
                     is Result.Success -> {
                         if (viewModel.hasNavigated.value == false) {
-                            navController.navigate(Screen.ResultTransacction.createRoute(it.data.toJson())) {
-                                popUpTo(Screen.Home.route)
-                                launchSingleTop = true
-                                viewModel.setHasNavigated()
-                            }
+                            MessageDialog(
+                                title = "Pago realizado",
+                                text = "Se realizo el pago por el monto de ${it.data.servicePayment.amount}",
+                                alertType = AlertType.Success,
+                                onPrimaryButton = {
+                                    navController.popBackStack()
+                                },
+                                primaryButtonText = stringResource(R.string.accept)
+                            )
                         }
                     }
 

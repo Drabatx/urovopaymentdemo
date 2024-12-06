@@ -24,7 +24,6 @@ class TradingRepositoryImpl @Inject constructor(
         flow {
             try {
                 val responseFlow = MutableStateFlow<Result<TradingCardResponse>>(Result.Loading())
-
                 apiService.grantingTicket(request = request)
                     .enqueue(object : Callback<TradingCardResponse> {
                         override fun onResponse(
