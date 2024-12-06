@@ -12,13 +12,28 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import com.lib.card.constant.CardTypeConstant
 import com.test.urovopaymentapp.R
+import com.test.urovopaymentapp.data.local.preferences.MerchantConfig
+import com.test.urovopaymentapp.data.local.preferences.PreferencesConfigs
 import com.test.urovopaymentapp.data.model.pos2.constants.PosTransType
 import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
+import com.test.urovopaymentapp.di.PaymentValues
 import com.test.urovopaymentapp.domain.model.EmvConstants.AMOUNT
 import com.test.urovopaymentapp.domain.model.EmvConstants.CARD_TYPE_IC
 import com.test.urovopaymentapp.domain.model.EmvConstants.CHECK_CARD_MODE
 import com.test.urovopaymentapp.domain.model.EmvConstants.getEMVInstance
+import com.test.urovopaymentapp.domain.model.TradingCardResponse
+import com.test.urovopaymentapp.domain.model.request.login.Authentication
+import com.test.urovopaymentapp.domain.model.request.login.AuthenticationData
+import com.test.urovopaymentapp.domain.model.request.login.BackendUserRequest
+import com.test.urovopaymentapp.domain.model.request.login.GrantingTicketRequest
+import com.test.urovopaymentapp.domain.model.request_pago_ci.ChargingCurrency
+import com.test.urovopaymentapp.domain.model.request_pago_ci.Contract
+import com.test.urovopaymentapp.domain.model.request_pago_ci.OperationType
+import com.test.urovopaymentapp.domain.model.request_pago_ci.RequestPagoCi
+import com.test.urovopaymentapp.domain.model.request_pago_ci.Sender
+import com.test.urovopaymentapp.domain.model.request_pago_ci.TaxableCash
 import com.test.urovopaymentapp.utils.Result
+import com.test.urovopaymentapp.utils.exception.ConnectServerException
 import com.test.urovopaymentapp.utils.exception.UrovoChecCardResultException
 import com.test.urovopaymentapp.utils.exception.UrovoMessageException
 import com.test.urovopaymentapp.utils.exception.UrovoSelectApplicationException
@@ -103,7 +118,7 @@ class MyEmvListener @Inject constructor(
     }
 
     fun startKernel(checkCardMode: CheckCardMode) {
-        Thread{
+        Thread {
             try {
                 val data = getEMVInstance()
                 data[CHECK_CARD_MODE] = checkCardMode
@@ -115,17 +130,99 @@ class MyEmvListener @Inject constructor(
         }.start()
     }
 
-    fun processPayment(tlvData: String) {
+    fun loginToServer(tlvData: String) {
         runBlocking {
-            _posInputDatas.let {
-                tradingRepository.loginToProcessPayments().collect { result ->
-                    when (result) {
+            posInputDatas.let {
+                val request = grantingTicketRequest()
+                tradingRepository.loginToProcessPayments(request).collect { response ->
+                    when (response) {
+                        is Result.Success -> {
+                            processPayment(tlvData = tlvData, response.data)
+                        }
+
+                        is Result.Error -> {
+                            _result.value =
+                                Result.Error(ConnectServerException(context.getString(R.string.err_login_server)))
+                        }
+
+                        is Result.Loading -> {
+                            _result.value =
+                                Result.Loading(context.getString(R.string.login_server))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun grantingTicketRequest(): GrantingTicketRequest {
+        val autenticationData = AuthenticationData.Builder()
+            .setIdAuthenticationData(MerchantConfig.idAuthenticationData)
+            .setAuthenticationData(listOf(MerchantConfig.authenticationData))
+            .build()
+        val authentication = Authentication.Builder()
+            .setUserID(MerchantConfig.authUserId)
+            .setConsumerID(MerchantConfig.authConsumerId)
+            .setAuthenticationData(listOf(autenticationData))
+            .build()
+        val backendUserRequest = BackendUserRequest.Builder()
+            .setUserId(MerchantConfig.backendUserId)
+            .setAccessCode(MerchantConfig.backendAccessCode)
+            .setDialogId(MerchantConfig.backendDialogId)
+            .build()
+
+        val request = GrantingTicketRequest.Builder()
+            .setAuthentication(authentication)
+            .setBackendUserRequest(backendUserRequest)
+            .build()
+        return request
+    }
+
+    fun processPayment(tlvData: String, data: TradingCardResponse) {
+        runBlocking {
+            posInputDatas.value.let {
+                val taxableCash =
+                    posInputDatas.value?.amt?.let { amnt -> TaxableCash(amount = amnt) }
+                        ?: TaxableCash(amount = "0.0")
+
+                val contract = Contract.Builder()
+                    .setChannelContract(PaymentValues.channelContract)
+                    .setContractNumber("") //Número de contrato APIs Empresariales a 8 posiciones con ceros a la izquierda
+                    .setChargingCurrency(ChargingCurrency(code = PaymentValues.chargingCurrency))
+                    .build()
+
+                val sender = posInputDatas.value?.let { it1 ->
+                    Sender.Builder()
+                        .setOperationType(OperationType(id = PaymentValues.operationTypeId))
+                        .setContract(contract)
+                        .setServiceNumber(PaymentValues.serviceNumber)
+                        .setTerminalId(PaymentValues.terminalId)
+                        .setChargeAccount(it1.pan)//Cuenta de cargo dada de alta como cuenta propia en el contrato de donde saldrán los fondos
+                        .build()
+                } ?: Sender.Builder().build()
+
+                val request: RequestPagoCi = RequestPagoCi.Builder()
+                    .setSender(sender)
+                    .setTaxableCash(taxableCash)// Monto de la operación N(13.2) 13 enteros y dos decimales con punto decimal
+                    .setNumberAgreement("")//Número de convenio CIE a 9posiciones con ceros a la izaquierda
+                    .setReference("")//Refeencia CIE A(20)
+                    .setConcept("")//Concepto CIE A(30), el campo no se require para los convenios que no llevan concepto
+                    .build()
+                val tsec = PreferencesConfigs.tsecHeader
+                tradingRepository.processPaymentCI(tsec = tsec, request = request).collect {
+                    when (it) {
                         is Result.Success -> {
                             mKernelApi.sendOnlineProcessResult(true, tlvData)
                         }
 
                         is Result.Error -> {
-                            mKernelApi.sendOnlineProcessResult(false, tlvData)
+                            _result.value = Result.Error(
+                                ConnectServerException(
+                                    context.getString(
+                                        R.string.err_process_payment
+                                    )
+                                )
+                            )
                         }
 
                         is Result.Loading -> {
@@ -134,6 +231,7 @@ class MyEmvListener @Inject constructor(
                         }
                     }
                 }
+
             }
         }
     }
@@ -146,7 +244,7 @@ class MyEmvListener @Inject constructor(
         checkCardResult: CheckCardResult,
         hashtable: Hashtable<String, String>
     ) {
-        if (checkCardResult == CheckCardResult.INSERTED_CARD){
+        if (checkCardResult == CheckCardResult.INSERTED_CARD) {
             _result.value = Result.Loading(context.getString(R.string.read_card_ready))
         } else if (checkCardResult == CheckCardResult.MSR) {
             val stripStr = hashtable["StripInfo"]!!.uppercase(Locale.getDefault())
@@ -304,7 +402,7 @@ class MyEmvListener @Inject constructor(
 
         Log.i(TAG, "onRequestOnlineProcess: tlvData:$cardTlvData")
         _result.value = Result.Loading("Procesando pago")
-        processPayment(tlvData = cardTlvData)
+        loginToServer(tlvData = cardTlvData)
     }
 
 

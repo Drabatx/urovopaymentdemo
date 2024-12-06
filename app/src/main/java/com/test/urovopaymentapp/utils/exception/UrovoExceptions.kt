@@ -12,3 +12,4 @@ class UrovoSelectApplicationException(
 class UrovoChecCardResultException(message: String):Exception(message)
 
 class UrovoTransactionException(message: String):Exception(message)
+class ConnectServerException(message: String):Exception(message)

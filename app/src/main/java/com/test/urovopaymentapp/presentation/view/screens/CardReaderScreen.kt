@@ -1,6 +1,5 @@
 package com.test.urovopaymentapp.presentation.view.screens
 
-import android.util.Log
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -10,10 +9,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -23,7 +18,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.livedata.observeAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +35,7 @@ import com.test.urovopaymentapp.data.model.pos2.models.PosInputDatas
 import com.test.urovopaymentapp.data.model.pos2.models.toJson
 import com.test.urovopaymentapp.data.model.pos2.models.toPosInputDatas
 import com.test.urovopaymentapp.presentation.navigation.Screen
+import com.test.urovopaymentapp.presentation.view.dialogs.AlertType
 import com.test.urovopaymentapp.presentation.view.dialogs.LoadingDialog
 import com.test.urovopaymentapp.presentation.view.dialogs.MessageDialog
 import com.test.urovopaymentapp.presentation.view.viewmodels.CardReaderViewModel
@@ -64,7 +59,7 @@ fun CardReaderScreen(
             posInputDatas = posInputData
         )
     }
-    Scaffold(topBar = { MyTopBar("Leer Tarjeta") }) { peddingValues ->
+    Scaffold(topBar = { MyTopBar(stringResource(R.string.read_card)) }) { peddingValues ->
         Box(
             modifier = Modifier.padding(
                 vertical = peddingValues.calculateTopPadding(), horizontal = 16.dp
@@ -88,52 +83,21 @@ fun CardReaderScreen(
                             title = stringResource(id = R.string.error_title),
                             text = it.exception.message
                                 ?: stringResource(id = R.string.error_generic),
-                            showDialog = true,
-                            icon = {
-                                Icon(
-                                    imageVector = Icons.Filled.Error,
-                                    contentDescription = "Error Icon",
-                                    tint = Color.Red, // Cambia el color a rojo
-                                    modifier = Modifier.size(24.dp) // Tamaño del icono
-                                )
+                            alertType = AlertType.Error,
+                            onPrimaryButton = {
+                                navController.popBackStack()
                             },
                             primaryButtonText = stringResource(
                                 R.string.accept
-                            ),
-                            onConfirm = {
-                                navController.popBackStack()
-                            }
+                            )
                         )
                     }
 
                     is Result.Loading -> {
-                        if (it.message.isNotEmpty()){
+                        if (it.message.isNotEmpty()) {
                             LoadingDialog(isLoading = true, message = it.message)
                         }
                     }
-
-//                is UrovoResult.Message -> {
-//                    MessageDialog(
-//                        title = stringResource(id = R.string.atention),
-//                        text = it.message,
-//                        icon = {
-//                            Icon(
-//                                imageVector = Icons.Filled.Info,
-//                                contentDescription = "Info Icon",
-//                                tint = Color.Blue, // Cambia el color a rojo
-//                                modifier = Modifier.size(24.dp) // Tamaño del icono
-//                            )
-//                        },
-//                        showDialog = true,
-//
-//                        primaryButtonText = stringResource(
-//                            R.string.accept
-//                        ),
-//                        onConfirm = {
-//                            navController.popBackStack()
-//                        }
-//                    )                }
-//
                 }
             }
         }

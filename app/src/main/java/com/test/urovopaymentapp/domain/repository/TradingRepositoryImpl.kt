@@ -1,9 +1,10 @@
 package com.test.urovopaymentapp.domain.repository
 
 import com.test.urovopaymentapp.data.local.preferences.PreferencesConfigs
-import com.test.urovopaymentapp.domain.model.HeaderLogin
 import com.test.urovopaymentapp.domain.model.TradingCardResponse
 import com.test.urovopaymentapp.domain.model.request.login.GrantingTicketRequest
+import com.test.urovopaymentapp.domain.model.request_pago_ci.RequestPagoCi
+import com.test.urovopaymentapp.domain.model.response_pago_ci.ResponsePagoCI
 import com.test.urovopaymentapp.domain.network.ApiService
 import com.test.urovopaymentapp.utils.Result
 import kotlinx.coroutines.flow.Flow
@@ -19,10 +20,9 @@ class TradingRepositoryImpl @Inject constructor(
     private val apiService: ApiService
 ) : TradingRepository {
 
-    override suspend fun loginToProcessPayments(): Flow<Result<TradingCardResponse>> =
+    override suspend fun loginToProcessPayments(request: GrantingTicketRequest): Flow<Result<TradingCardResponse>> =
         flow {
             try {
-                val request = GrantingTicketRequest.Builder().build()
                 val responseFlow = MutableStateFlow<Result<TradingCardResponse>>(Result.Loading())
 
                 apiService.grantingTicket(request = request)
@@ -35,12 +35,6 @@ class TradingRepositoryImpl @Inject constructor(
                                 val tsec = response.headers()["tsec"]
                                 val consumerRequestID = response.headers()["ConsumerRequestID"]
                                 if (tsec != null && consumerRequestID != null) {
-                                    val headerLogin =
-                                        HeaderLogin(
-                                            tsec = tsec,
-                                            consumerRequestId = consumerRequestID
-                                        )
-
                                     PreferencesConfigs.tsecHeader = tsec
                                     PreferencesConfigs.customerIdHeader = consumerRequestID
                                     PreferencesConfigs.timestampHeader = System.currentTimeMillis()
@@ -63,6 +57,38 @@ class TradingRepositoryImpl @Inject constructor(
                         }
                     })
 
+                emitAll(responseFlow)
+            } catch (e: Exception) {
+                emit(Result.Error(e))
+            }
+        }
+
+    override suspend fun processPaymentCI(
+        tsec: String,
+        request: RequestPagoCi
+    ): Flow<Result<ResponsePagoCI>> =
+        flow {
+            try {
+                val responseFlow = MutableStateFlow<Result<ResponsePagoCI>>(Result.Loading())
+                apiService.paymentCI(tsec, request).enqueue(object : Callback<ResponsePagoCI> {
+                    override fun onResponse(
+                        call: Call<ResponsePagoCI>,
+                        response: Response<ResponsePagoCI>
+                    ) {
+                        if (response.isSuccessful) {
+                            response.body()?.let {
+                                responseFlow.value = Result.Success(it)
+                            }
+                        } else {
+                            responseFlow.value =
+                                Result.Error(Exception("Error al Procesar el pago"))
+                        }
+                    }
+
+                    override fun onFailure(call: Call<ResponsePagoCI>, t: Throwable) {
+                        responseFlow.value = Result.Error(t)
+                    }
+                })
                 emitAll(responseFlow)
             } catch (e: Exception) {
                 emit(Result.Error(e))

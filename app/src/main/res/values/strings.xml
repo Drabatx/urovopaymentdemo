@@ -66,5 +66,9 @@
     <string name="err_no_emv_apps">Tarjeta incompatible o sin aplicaciones EMV.</string>
     <string name="loading_amount">Confirmando monto</string>
     <string name="read_card_ready">Leyendo tarjeta</string>
+    <string name="read_card">Leer Tarjeta</string>
+    <string name="login_server">Estableciendo conexion con el servidor.</string>
+    <string name="err_login_server">Error al establecer conexion con el servidor.</string>
+    <string name="err_process_payment">Error al procesar el pago con tarjeta.</string>
 
 </resources>
